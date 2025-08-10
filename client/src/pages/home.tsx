@@ -50,7 +50,7 @@ export default function Home() {
                 <i className="fas fa-exclamation-triangle text-white text-sm"></i>
               </div>
               <h1 className="text-xl font-semibold text-gray-900">
-                IncidentTriage<span className="text-blue-600 italic text-lg">pgw</span>
+                IncidentTriage<span className="text-primary italic text-sm">pgw</span>
               </h1>
             </div>
             <div className="flex items-center space-x-4">
