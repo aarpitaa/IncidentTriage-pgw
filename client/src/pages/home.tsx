@@ -60,7 +60,14 @@ export default function Home() {
                 <HomeIcon className="h-4 w-4 text-white" />
               </div>
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                IncidentTriage<span className="text-primary italic text-sm">pgw</span>
+                IncidentTriage<a 
+                  href="https://www.pgworks.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary italic text-sm hover:text-primary/80 transition-colors cursor-pointer"
+                >
+                  pgw
+                </a>
               </h1>
             </div>
             <div className="flex items-center space-x-4">
