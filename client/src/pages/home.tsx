@@ -1,13 +1,20 @@
 import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import IncidentForm from "@/components/incident-form";
 import AiSuggestionsPanel from "@/components/ai-suggestions-panel";
 import TeamsCardPreview from "@/components/teams-card-preview";
 import EnhancedIncidentHistory from "@/components/enhanced-incident-history";
+import IncidentMap from "@/components/incident-map";
 import SettingsBanner from "@/components/settings-banner";
 import AuditTrail from "@/components/audit-trail";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { EnrichResponse } from "@shared/schema";
+import { BarChart3, Home as HomeIcon, Settings } from "lucide-react";
 
 export default function Home() {
+  const [location] = useLocation();
   const [aiSuggestion, setAiSuggestion] = useState<EnrichResponse | null>(null);
   const [lastSavedIncident, setLastSavedIncident] = useState<any>(null);
   const [showDiffNotification, setShowDiffNotification] = useState(false);
@@ -42,20 +49,47 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-gray-50 font-sans min-h-screen">
+    <div className="bg-white dark:bg-gray-900 font-sans min-h-screen transition-colors">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <i className="fas fa-exclamation-triangle text-white text-sm"></i>
+                <HomeIcon className="h-4 w-4 text-white" />
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
                 IncidentTriage<span className="text-primary italic text-sm">pgw</span>
               </h1>
             </div>
-            <SettingsBanner />
+            <div className="flex items-center space-x-4">
+              {/* Navigation */}
+              <nav className="hidden md:flex space-x-2">
+                <Link href="/">
+                  <Button 
+                    variant={location === "/" ? "default" : "ghost"} 
+                    size="sm" 
+                    className="text-sm"
+                  >
+                    <HomeIcon className="h-4 w-4 mr-2" />
+                    Incidents
+                  </Button>
+                </Link>
+                <Link href="/analytics">
+                  <Button 
+                    variant={location === "/analytics" ? "default" : "ghost"} 
+                    size="sm"
+                    className="text-sm"
+                  >
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Analytics
+                  </Button>
+                </Link>
+              </nav>
+              
+              <ThemeToggle />
+              <SettingsBanner />
+            </div>
           </div>
         </div>
       </header>
@@ -100,9 +134,21 @@ export default function Home() {
             <TeamsCardPreview incident={lastSavedIncident} />
           </div>
 
-          {/* Right Column: Incident History + Audit Trail */}
+          {/* Right Column: Incident History + Map + Audit Trail */}
           <div className="xl:col-span-3 space-y-6">
             <EnhancedIncidentHistory />
+            
+            {/* Map for last saved incident */}
+            {lastSavedIncident && lastSavedIncident.address && (
+              <IncidentMap 
+                incident={lastSavedIncident}
+                onCoordinatesUpdate={(lat, lng) => {
+                  // Could implement real-time coordinate updates here
+                  console.log(`Updated coordinates: ${lat}, ${lng}`);
+                }}
+              />
+            )}
+            
             {lastSavedIncident && (
               <AuditTrail incidentId={lastSavedIncident.id} />
             )}

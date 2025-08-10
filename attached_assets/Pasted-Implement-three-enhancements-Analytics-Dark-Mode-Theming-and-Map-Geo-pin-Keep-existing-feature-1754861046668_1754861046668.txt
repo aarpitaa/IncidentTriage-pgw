@@ -1,0 +1,90 @@
+Implement three enhancements: Analytics, Dark Mode/Theming, and Map & Geo pin. Keep existing features intact.
+0) General
+Tech stays React + Express + Postgres in one repl.
+Use existing incidents, audits, and (if present) ai_suggestions tables.
+Add minimal, self-contained code; match current styling.
+1) Analytics Dashboard (backend + frontend)
+Backend (Express)
+Add GET /api/stats with optional query params from and to (ISO dates). Default window: last 30 days.
+Return JSON:
+{
+  "window": {"from":"<ISO>","to":"<ISO>"},
+  "totals": {"incidents": 0, "audited": 0},
+  "bySeverity": [{"severity":"High","count":0}, {"severity":"Medium","count":0}, {"severity":"Low","count":0}],
+  "byCategory": [{"category":"Leak","count":0}, ...],
+  "byWeek": [{"weekStart":"YYYY-MM-DD","count":0}, ...],
+  "avgChangedFields": 0
+}
+Postgres queries (use parameterized SQL):
+bySeverity: SELECT severity, COUNT(*) FROM incidents WHERE created_at BETWEEN $1 AND $2 GROUP BY severity;
+byCategory: SELECT category, COUNT(*) FROM incidents WHERE created_at BETWEEN $1 AND $2 GROUP BY category;
+byWeek: SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS weekStart, COUNT(*) FROM incidents WHERE created_at BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 1;
+totals.incidents: count in window.
+totals.audited: count of incidents that have ≥1 audit in window (join on audits).
+avgChangedFields: average length of changed_fields_json array in audits for the window. (Store arrays as JSON; compute average of json_array_length(changed_fields_json).)
+Return 200 with the structure above.
+Frontend (React)
+Add a new Analytics route/tab.
+Call /api/stats (30-day default); allow choosing quick ranges (7d/30d/90d) with a dropdown.
+Render:
+KPI badges: Total incidents, % High severity (High / total), Avg changed fields.
+Chart.js (or lightweight library already in project):
+Bar: incidents by severity.
+Line: incidents per week.
+Optional Pie/Donut: by category if space allows.
+Respect existing theme (will update with dark mode below).
+Acceptance
+Hitting Analytics shows KPIs + two charts; switching range updates figures.
+2) Dark Mode + Theming (frontend only)
+Requirements
+Add CSS variables for colors, supporting light/dark. Example:
+:root {
+  --bg: #ffffff; --text: #111827; --panel: #f9fafb; --muted: #6b7280;
+  --pill-high: #ef4444; --pill-med: #f59e0b; --pill-low: #10b981;
+}
+:root.dark {
+  --bg: #0b0f15; --text: #e5e7eb; --panel: #111827; --muted: #9ca3af;
+  --pill-high: #f87171; --pill-med: #fbbf24; --pill-low: #34d399;
+}
+body { background: var(--bg); color: var(--text); }
+.card { background: var(--panel); }
+Add a theme toggle (icon button in header). Behavior:
+Default to prefers-color-scheme.
+Toggle adds/removes dark class on <html> or <body> root.
+Persist in localStorage.theme = "light" | "dark".
+Update severity/category pills and charts to read from CSS variables so they look good in both modes.
+Acceptance
+Toggle switches theme instantly; preference persists on reload; charts adapt and remain legible.
+3) Map & Geo Pin (frontend + optional backend helper)
+Frontend
+Add a Leaflet map to the Incident Detail view (small panel ~300–400px tall).
+Use OpenStreetMap tiles: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png with proper attribution.
+If incident has lat & lng, show a marker; else try to geocode address (see below).
+Severity affects marker color (red/orange/green).
+Add a tiny Map tab or section in the detail view. If no coords or failed geocode, show a graceful “No location available” state.
+Optional list view mini-map thumbnail (only if trivial; otherwise skip).
+Geocoding
+Implement a small utility with two modes:
+Nominatim mode (default OFF): if process.env.GEOCODE_PROVIDER === "nominatim", client calls https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)} and uses the first result’s lat/lon. Add a simple 500ms debounce and a “Geocode” button to avoid rate-limit.
+Pseudo mode (default ON): without external calls, create deterministic pseudo-coordinates from the address string (e.g., hash to numbers and map into a bounding box around your city). This keeps the demo stable without API keys:
+Example: hash the address to an integer; map to lat in [39.90, 40.10] and lng in [-75.30, -75.00] so pins land around Philly.
+When coordinates are determined, store them on the incident record via your existing update path (so the map persists on next load). If you don’t have an update API, extend POST /api/incidents to accept optional lat/lng, and add PATCH /api/incidents/:id to update coords later.
+Backend (optional)
+If you prefer server-side geocoding, add POST /api/geocode accepting { address } and, when GEOCODE_PROVIDER === "nominatim", server fetches Nominatim. Otherwise, return pseudo-coords. Frontend then calls this endpoint.
+Acceptance
+Incidents with addresses show a map with a colored marker.
+If no coords yet, clicking Geocode populates and persists them (or shows a helpful message if not available).
+Map looks good in light/dark themes.
+4) Small UX polish (if time left)
+Add keyboard shortcut D to toggle dark mode.
+In Analytics, allow PNG export of charts (Chart.js toBase64Image() button).
+In Incident Detail, add Copy buttons for Summary & Customer Message.
+5) README updates
+Document Analytics tab (metrics & date ranges).
+Document Dark Mode toggle & persistence.
+Document Map behavior and GEOCODE_PROVIDER options (pseudo default, nominatim optional).
+Add screenshots (light/dark, analytics, map).
+Final Acceptance (overall)
+/api/stats returns correct numbers for 30d; Analytics page renders KPIs + charts.
+Theme toggle switches and persists; all primary screens readable in both modes.
+Incident Detail shows a Leaflet map with a marker (pseudo or real geocode); severity affects marker color.

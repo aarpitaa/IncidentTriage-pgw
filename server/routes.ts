@@ -44,6 +44,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  app.get("/api/stats", async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      
+      // Default to last 30 days
+      const toDate = to ? new Date(to as string) : new Date();
+      const fromDate = from ? new Date(from as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      
+      const window = {
+        from: fromDate.toISOString(),
+        to: toDate.toISOString()
+      };
+
+      // Get statistics using storage methods
+      const stats = await storage.getAnalytics(fromDate, toDate);
+      
+      res.json({
+        window,
+        ...stats
+      });
+    } catch (error) {
+      console.error("Stats error:", error);
+      res.status(500).json({ error: "Failed to fetch statistics" });
+    }
+  });
+
   app.post("/api/enrich", enrichRateLimit, async (req, res) => {
     try {
       const request = enrichRequestSchema.parse(req.body);

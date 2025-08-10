@@ -1,6 +1,6 @@
 import { type Incident, type InsertIncident, type AiSuggestion, type InsertAiSuggestion, type Audit, type InsertAudit, incidents, aiSuggestions, audits } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, asc, or, ilike } from "drizzle-orm";
+import { eq, desc, and, asc, or, ilike, sql, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Incidents
@@ -21,6 +21,9 @@ export interface IStorage {
   // Audits
   createAudit(audit: InsertAudit): Promise<Audit>;
   getAuditsByIncident(incidentId: number): Promise<Audit[]>;
+  
+  // Analytics
+  getAnalytics(fromDate: Date, toDate: Date): Promise<any>;
 }
 
 
@@ -113,6 +116,84 @@ export class DatabaseStorage implements IStorage {
       .from(audits)
       .where(eq(audits.incidentId, incidentId))
       .orderBy(desc(audits.createdAt));
+  }
+
+  async getAnalytics(fromDate: Date, toDate: Date) {
+    // Get total incidents in window
+    const totalIncidents = await db.select({ count: sql<number>`count(*)` })
+      .from(incidents)
+      .where(and(
+        gte(incidents.createdAt, fromDate),
+        lte(incidents.createdAt, toDate)
+      ));
+
+    // Get incidents that have been audited
+    const auditedIncidents = await db.select({ count: sql<number>`count(distinct ${incidents.id})` })
+      .from(incidents)
+      .innerJoin(audits, eq(audits.incidentId, incidents.id))
+      .where(and(
+        gte(incidents.createdAt, fromDate),
+        lte(incidents.createdAt, toDate)
+      ));
+
+    // Get by severity
+    const bySeverity = await db.select({
+      severity: incidents.severity,
+      count: sql<number>`count(*)`
+    })
+    .from(incidents)
+    .where(and(
+      gte(incidents.createdAt, fromDate),
+      lte(incidents.createdAt, toDate)
+    ))
+    .groupBy(incidents.severity);
+
+    // Get by category
+    const byCategory = await db.select({
+      category: incidents.category,
+      count: sql<number>`count(*)`
+    })
+    .from(incidents)
+    .where(and(
+      gte(incidents.createdAt, fromDate),
+      lte(incidents.createdAt, toDate)
+    ))
+    .groupBy(incidents.category);
+
+    // Get by week
+    const byWeek = await db.select({
+      weekStart: sql<string>`to_char(date_trunc('week', ${incidents.createdAt}), 'YYYY-MM-DD')`,
+      count: sql<number>`count(*)`
+    })
+    .from(incidents)
+    .where(and(
+      gte(incidents.createdAt, fromDate),
+      lte(incidents.createdAt, toDate)
+    ))
+    .groupBy(sql`date_trunc('week', ${incidents.createdAt})`)
+    .orderBy(sql`date_trunc('week', ${incidents.createdAt})`);
+
+    // Get average changed fields
+    const avgChangedFields = await db.select({
+      avg: sql<number>`coalesce(avg(json_array_length(${audits.changedFieldsJson}::json)), 0)`
+    })
+    .from(audits)
+    .innerJoin(incidents, eq(audits.incidentId, incidents.id))
+    .where(and(
+      gte(incidents.createdAt, fromDate),
+      lte(incidents.createdAt, toDate)
+    ));
+
+    return {
+      totals: {
+        incidents: totalIncidents[0]?.count || 0,
+        audited: auditedIncidents[0]?.count || 0
+      },
+      bySeverity: bySeverity.map(row => ({ severity: row.severity, count: row.count })),
+      byCategory: byCategory.map(row => ({ category: row.category, count: row.count })),
+      byWeek: byWeek.map(row => ({ weekStart: row.weekStart, count: row.count })),
+      avgChangedFields: Math.round((avgChangedFields[0]?.avg || 0) * 100) / 100
+    };
   }
 }
 

@@ -12,6 +12,8 @@ export const incidents = pgTable("incidents", {
   summary: text("summary").notNull(),
   nextStepsJson: text("next_steps_json").notNull(), // JSON array of strings
   customerMessage: text("customer_message").notNull(),
+  lat: text("lat"), // Latitude for mapping
+  lng: text("lng"), // Longitude for mapping
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -2,6 +2,111 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme Variables */
+:root {
+  --bg: #ffffff;
+  --text: #111827;
+  --panel: #f9fafb;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --input: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #3b82f6;
+  --primary-foreground: #f8fafc;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --ring: #3b82f6;
+  --pill-high: #ef4444;
+  --pill-med: #f59e0b;
+  --pill-low: #10b981;
+}
+
+:root.dark {
+  --bg: #0b0f15;
+  --text: #e5e7eb;
+  --panel: #111827;
+  --muted: #9ca3af;
+  --border: #1f2937;
+  --input: #1f2937;
+  --card: #111827;
+  --card-foreground: #f8fafc;
+  --popover: #111827;
+  --popover-foreground: #f8fafc;
+  --primary: #3b82f6;
+  --primary-foreground: #f8fafc;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --ring: #1d4ed8;
+  --pill-high: #f87171;
+  --pill-med: #fbbf24;
+  --pill-low: #34d399;
+}
+
+/* Apply global dark mode styles */
+body {
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Fix card backgrounds */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+/* Override any hardcoded backgrounds */
+.bg-white {
+  background-color: var(--bg) !important;
+}
+
+.bg-gray-50 {
+  background-color: var(--panel) !important;
+}
+
+.text-gray-900 {
+  color: var(--text) !important;
+}
+
+.border-gray-200 {
+  border-color: var(--border) !important;
+}
+
+/* Leaflet marker fix */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Dark mode adjustments for maps */
+.dark .leaflet-control {
+  background: var(--panel) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+.dark .leaflet-control a {
+  color: var(--text) !important;
+}
+
+.dark .leaflet-popup-content-wrapper {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+}
+
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(210 25% 7.8431%);
