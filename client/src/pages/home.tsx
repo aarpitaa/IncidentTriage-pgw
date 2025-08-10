@@ -133,14 +133,14 @@ export default function Home() {
             )}
 
             <TeamsCardPreview incident={lastSavedIncident} />
-          </div>
-
-          {/* Right Column: Incident History + Map + Audit Trail */}
-          <div className="xl:col-span-3 space-y-6">
-            <EnhancedIncidentHistory />
             
             {/* Always show incidents map */}
             <IncidentsMap />
+          </div>
+
+          {/* Right Column: Incident History + Individual Map + Audit Trail */}
+          <div className="xl:col-span-3 space-y-6">
+            <EnhancedIncidentHistory />
             
             {/* Individual incident map when one is selected */}
             {lastSavedIncident && lastSavedIncident.address && (
