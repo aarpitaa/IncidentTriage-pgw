@@ -131,14 +131,14 @@ export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormPr
                 type="button" 
                 onClick={handleEnrich}
                 disabled={isLoading}
-                className="bg-primary-600 hover:bg-primary-700"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {isLoading ? (
                   <i className="fas fa-spinner fa-spin mr-2"></i>
                 ) : (
                   <i className="fas fa-magic mr-2"></i>
                 )}
-                {isLoading ? "Processing..." : "Enrich with AI"}
+                {isLoading ? "Processing..." : "Generate Report"}
               </Button>
               
               <Button 

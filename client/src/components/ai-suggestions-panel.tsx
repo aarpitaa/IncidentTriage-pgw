@@ -95,14 +95,14 @@ export default function AiSuggestionsPanel({ suggestion, onSave, onRegenerate }:
       <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <i className="fas fa-robot text-primary-600"></i>
+            <i className="fas fa-robot text-primary"></i>
             <h3 className="text-lg font-medium text-gray-900">AI Suggestions</h3>
-            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded-full">
+            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full">
               Generated in 1.2s
             </span>
           </div>
           <button 
-            className="text-sm text-primary-600 hover:text-primary-700"
+            className="text-sm text-primary hover:text-primary/80"
             onClick={() => onRegenerate(suggestion)}
           >
             <i className="fas fa-redo mr-1"></i>
