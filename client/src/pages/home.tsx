@@ -49,7 +49,9 @@ export default function Home() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <i className="fas fa-exclamation-triangle text-white text-sm"></i>
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">AI Incident Triage Portal</h1>
+              <h1 className="text-xl font-semibold text-gray-900">
+                IncidentTriage<span className="text-blue-600 italic text-lg">pgw</span>
+              </h1>
             </div>
             <div className="flex items-center space-x-4">
               {/* AI Status Indicator */}
