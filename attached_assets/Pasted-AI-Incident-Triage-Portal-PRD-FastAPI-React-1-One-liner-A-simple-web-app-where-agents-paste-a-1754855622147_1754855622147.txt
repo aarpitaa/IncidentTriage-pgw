@@ -1,0 +1,91 @@
+AI Incident Triage Portal — PRD (FastAPI + React)
+1) One-liner
+A simple web app where agents paste an incident description; the app uses an LLM to classify (category, severity), summarize, propose next steps, and draft a customer-safe message. The agent can edit everything, then save. An audit trail records AI suggestions vs. final human edits. Includes a “simulate Teams card” preview.
+2) Goals & non-goals
+Goals: Cut triage time; standardize responses; keep data in your Replit app (SQLite); clean, demo-ready UI.
+Non-goals (for this demo): Real Microsoft 365/Teams/SharePoint integration; auth/SSO; mobile app.
+3) Tech (all Replit-friendly)
+Backend: Python 3.11, FastAPI, Uvicorn, SQLModel (SQLite), httpx + OpenAI (or stub mode).
+Frontend: React (Vite) + Axios.
+Storage: SQLite file (/data/app.db) or Replit DB (SQLite recommended).
+4) Architecture (layers)
+UI layer (React): Incident form, AI suggestion panel, diff-like “what changed,” list/history, “simulate Teams card.”
+API layer (FastAPI): /api/enrich (LLM call), /api/incidents CRUD, /api/incidents/{id}/audit CRUD.
+AI layer: Pluggable service — OpenAI (gpt-4o-mini / gpt-4o-mini-transcribe if needed) or DummyAI fallback when NO_LLM=1.
+Data layer: SQLite via SQLModel tables: incidents, ai_suggestions, audits.
+5) Data model (SQLModel)
+Incident
+id (int, pk)
+address (str, nullable)
+description (text)
+category (enum: Leak, Odor, Outage, Billing, Meter, Other)
+severity (enum: Low, Medium, High)
+summary (text)
+next_steps_json (text; JSON list of strings)
+customer_message (text)
+created_at, updated_at (datetime)
+AiSuggestion
+id (int, pk) incident_id (fk)
+raw_json (text) — the model’s original suggestion
+model (str), prompt_version (str)
+created_at (datetime)
+Audit
+id (int, pk) incident_id (fk)
+before_json (text) — values prior to save
+after_json (text) — values after save
+changed_fields_json (text) — list of field names
+created_at (datetime)
+6) API spec
+POST /api/enrich
+Body: { address?: string, description: string }
+Returns (200):
+{
+  "category": "Leak|Odor|Outage|Billing|Meter|Other",
+  "severity": "Low|Medium|High",
+  "summary": "string <= 120 words",
+  "nextSteps": ["step 1","step 2", "..."],
+  "customerMessage": "string <= 120 words"
+}
+POST /api/incidents
+Body: final editable fields (same as Incident schema). Creates incident and an Audit comparing AI suggestion (optional) to final.
+GET /api/incidents → list (with basic filters: ?severity=High).
+GET /api/incidents/{id} → detail + related ai_suggestions + audits.
+POST /api/incidents/{id}/audit → add extra audit rows (optional).
+CORS enabled for http://localhost:5173 (Vite) and Replit preview URLs.
+7) AI prompts (put in backend as templates)
+System prompt (classification & drafting)
+You are a utility incident triage assistant.
+Return STRICT JSON only. Fields:
+- category: one of ["Leak","Odor","Outage","Billing","Meter","Other"]
+- severity: one of ["Low","Medium","High"]
+- summary: <=120 words, concise, operational tone
+- nextSteps: array of 3–6 imperative steps
+- customerMessage: <=120 words, courteous, plain language, no guarantees, safety tips if applicable
+User prompt (filled with inputs)
+Address: {{address}}
+Description: {{description}}
+
+Classify category & severity, summarize, propose nextSteps[], and draft a customerMessage.
+Return JSON only.
+8) UX details
+Form: Address, Description (required). Buttons: Enrich with AI, Clear, Save.
+AI panel: Shows suggestions in editable inputs: Category (select), Severity (select), Summary (textarea), Next Steps (textarea with one-per-line), Customer Message (textarea).
+Diff strip: After saving, a little badge “3 fields changed from AI suggestion” (click to view which).
+History/List: Table of past incidents (created_at desc). Filters: by severity/category.
+Simulate Teams card: A styled preview card with title, severity pill, summary, next steps bullets, and “Copy as Markdown.”
+Build levels (keep it simple)
+Level 1 (Core) — ~3–4 hours
+Backend: FastAPI app with /api/enrich (works with DummyAI if NO_LLM=1).
+Frontend: React form, call /api/enrich, show editable fields, Save to in-memory list (or SQLite if you’re comfortable).
+Basic incidents list page.
+Acceptance: Type a description → Enrich returns structured data → Save → Incident appears in list.
+Level 2 (Persistence + Audit + Teams Card) — ~3–4 hours
+Add SQLite + SQLModel; persist incidents.
+On save, compute changed fields vs last AI suggestion; insert an Audit row.
+“Simulate Teams card” preview & “Copy Markdown” button.
+Acceptance: Refreshing the page preserves incidents. Audit shows changed fields. Teams preview renders.
+Level 3 (Polish) — ~2–3 hours
+Filters/search on the list. Severity/category pills. CSV export.
+Simple seed data & 3 quick “sample descriptions” buttons.
+Toggle Stub/Live AI (NO_LLM env) and model name in settings.
+Acceptance: Filters work; export works; turning on NO_LLM still lets demo run.
