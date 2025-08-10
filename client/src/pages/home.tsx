@@ -5,6 +5,7 @@ import AiSuggestionsPanel from "@/components/ai-suggestions-panel";
 import TeamsCardPreview from "@/components/teams-card-preview";
 import EnhancedIncidentHistory from "@/components/enhanced-incident-history";
 import IncidentMap from "@/components/incident-map";
+import IncidentsMap from "@/components/incidents-map";
 import SettingsBanner from "@/components/settings-banner";
 import AuditTrail from "@/components/audit-trail";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -138,13 +139,16 @@ export default function Home() {
           <div className="xl:col-span-3 space-y-6">
             <EnhancedIncidentHistory />
             
-            {/* Map for last saved incident */}
+            {/* Always show incidents map */}
+            <IncidentsMap />
+            
+            {/* Individual incident map when one is selected */}
             {lastSavedIncident && lastSavedIncident.address && (
               <IncidentMap 
                 incident={lastSavedIncident}
                 onCoordinatesUpdate={(lat, lng) => {
                   // Could implement real-time coordinate updates here
-                  console.log(`Updated coordinates: ${lat}, ${lng}`);
+                  console.log(`Updated coordinates: ${lat}, lng}`);
                 }}
               />
             )}
