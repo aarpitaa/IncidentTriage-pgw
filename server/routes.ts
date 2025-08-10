@@ -110,29 +110,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/incidents/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const incident = await storage.getIncident(id);
-      
-      if (!incident) {
-        return res.status(404).json({ error: "Incident not found" });
-      }
-
-      const aiSuggestions = await storage.getAiSuggestionsByIncident(id);
-      const audits = await storage.getAuditsByIncident(id);
-
-      res.json({
-        incident,
-        aiSuggestions,
-        audits,
-      });
-    } catch (error) {
-      console.error("Get incident error:", error);
-      res.status(500).json({ error: "Failed to fetch incident" });
-    }
-  });
-
   app.get("/api/incidents/export.csv", async (req, res) => {
     try {
       const incidents = await storage.getIncidents();
@@ -163,6 +140,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("CSV export error:", error);
       res.status(500).json({ error: "Failed to export incidents" });
+    }
+  });
+
+  app.get("/api/incidents/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const incident = await storage.getIncident(id);
+      
+      if (!incident) {
+        return res.status(404).json({ error: "Incident not found" });
+      }
+
+      const aiSuggestions = await storage.getAiSuggestionsByIncident(id);
+      const audits = await storage.getAuditsByIncident(id);
+
+      res.json({
+        incident,
+        aiSuggestions,
+        audits,
+      });
+    } catch (error) {
+      console.error("Get incident error:", error);
+      res.status(500).json({ error: "Failed to fetch incident" });
     }
   });
 
