@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import L from "leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { geocodeAddress } from "@/lib/geocoding";
 
-// Fix for default markers in Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// Import Leaflet from the global object instead of ES modules
+declare const L: any;
+
+// Initialize Leaflet icons when the component loads
+const initializeLeafletIcons = () => {
+  if (typeof L !== 'undefined' && L.Icon && L.Icon.Default) {
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    });
+  }
+};
 
 interface Incident {
   id: number;
@@ -24,9 +30,9 @@ interface Incident {
 }
 
 export default function IncidentsMap() {
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const markersRef = useRef<any[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   const { data: incidents = [], isLoading } = useQuery<Incident[]>({
@@ -65,6 +71,15 @@ export default function IncidentsMap() {
     if (!mapContainerRef.current || mapRef.current) return;
 
     try {
+      // Check if Leaflet is available
+      if (typeof L === 'undefined') {
+        console.error('Leaflet library not loaded');
+        return;
+      }
+
+      // Initialize icons first
+      initializeLeafletIcons();
+
       // Philadelphia center coordinates
       const map = L.map(mapContainerRef.current, {
         center: [39.9526, -75.1652],
@@ -149,13 +164,19 @@ export default function IncidentsMap() {
   };
 
   useEffect(() => {
-    // Small delay to ensure Leaflet is fully loaded
-    const timer = setTimeout(() => {
-      initializeMap();
-    }, 100);
+    // Check if Leaflet is loaded, if not wait for it
+    const checkLeafletAndInit = () => {
+      if (typeof L !== 'undefined') {
+        initializeMap();
+      } else {
+        console.log('Waiting for Leaflet to load...');
+        setTimeout(checkLeafletAndInit, 200);
+      }
+    };
+
+    checkLeafletAndInit();
 
     return () => {
-      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

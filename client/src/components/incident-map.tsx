@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import L from "leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { geocodeAddress } from "@/lib/geocoding";
 import { useToast } from "@/hooks/use-toast";
 
-// Fix for default markers in Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// Import Leaflet from the global object instead of ES modules
+declare const L: any;
+
+// Initialize Leaflet icons when the component loads
+const initializeLeafletIcons = () => {
+  if (typeof L !== 'undefined' && L.Icon && L.Icon.Default) {
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    });
+  }
+};
 
 interface IncidentMapProps {
   incident: {
@@ -25,9 +31,9 @@ interface IncidentMapProps {
 }
 
 export default function IncidentMap({ incident, onCoordinatesUpdate }: IncidentMapProps) {
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const markerRef = useRef<any>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const { toast } = useToast();
 
@@ -63,6 +69,15 @@ export default function IncidentMap({ incident, onCoordinatesUpdate }: IncidentM
     if (!mapContainerRef.current || mapRef.current) return;
 
     try {
+      // Check if Leaflet is available
+      if (typeof L === 'undefined') {
+        console.error('Leaflet library not loaded for incident map');
+        return;
+      }
+
+      // Initialize icons first
+      initializeLeafletIcons();
+
       const map = L.map(mapContainerRef.current, {
         center: [lat, lng],
         zoom: 13,
