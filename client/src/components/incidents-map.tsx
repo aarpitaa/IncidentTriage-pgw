@@ -110,26 +110,27 @@ export default function IncidentsMap() {
   };
 
   const addIncidentMarkers = async () => {
-    if (!mapRef.current) return;
+    if (!mapRef.current) {
+      console.log('Map not ready for markers');
+      return;
+    }
 
+    console.log('Adding markers for incidents:', incidents.length);
     clearMarkers();
     
-    const incidentsWithCoords = incidents.filter(incident => incident.address);
+    // Filter incidents that have coordinates
+    const incidentsWithCoords = incidents.filter(incident => 
+      incident.lat && incident.lng && incident.address
+    );
+    
+    console.log('Incidents with coordinates:', incidentsWithCoords.length);
     
     for (const incident of incidentsWithCoords) {
       try {
-        let lat: number, lng: number;
+        const lat = parseFloat(incident.lat!);
+        const lng = parseFloat(incident.lng!);
         
-        if (incident.lat && incident.lng) {
-          lat = parseFloat(incident.lat);
-          lng = parseFloat(incident.lng);
-        } else {
-          // Generate pseudo coordinates for demo
-          const coords = await geocodeAddress(incident.address!);
-          if (!coords) continue;
-          lat = coords.lat;
-          lng = coords.lng;
-        }
+        console.log(`Adding marker for incident ${incident.id} at [${lat}, ${lng}]`);
 
         const marker = L.marker([lat, lng], {
           icon: createCustomMarker(incident.severity)
@@ -148,10 +149,13 @@ export default function IncidentsMap() {
         `);
 
         markersRef.current.push(marker);
+        console.log(`Successfully added marker for incident ${incident.id}`);
       } catch (error) {
         console.error(`Failed to add marker for incident ${incident.id}:`, error);
       }
     }
+    
+    console.log(`Total markers added: ${markersRef.current.length}`);
   };
 
   const geocodeAllIncidents = async () => {
@@ -185,6 +189,12 @@ export default function IncidentsMap() {
       const checkLeafletAndInit = () => {
         if (typeof L !== 'undefined') {
           initializeMap();
+          // Add markers after map is initialized
+          setTimeout(() => {
+            if (incidents.length > 0) {
+              addIncidentMarkers();
+            }
+          }, 500);
         } else {
           setTimeout(checkLeafletAndInit, 100);
         }
@@ -201,6 +211,13 @@ export default function IncidentsMap() {
       if (typeof L !== 'undefined' && L.map) {
         console.log('Leaflet loaded, initializing map...');
         initializeMap();
+        // Add markers after map initialization
+        setTimeout(() => {
+          if (incidents.length > 0) {
+            console.log('Adding markers for', incidents.length, 'incidents');
+            addIncidentMarkers();
+          }
+        }, 500);
       } else if (attempts < maxAttempts) {
         attempts++;
         console.log(`Waiting for Leaflet... attempt ${attempts}`);
