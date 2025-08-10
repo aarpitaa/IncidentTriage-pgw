@@ -24,31 +24,21 @@ export default function IncidentHistory() {
     },
   });
 
-  const handleExportCSV = () => {
-    if (!incidents.length) return;
-
-    const headers = ["ID", "Address", "Category", "Severity", "Summary", "Created At"];
-    const csvData = incidents.map(incident => [
-      incident.id,
-      incident.address || "",
-      incident.category,
-      incident.severity,
-      incident.summary.replace(/,/g, ";"),
-      incident.createdAt
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...csvData.map(row => row.join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "incidents.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+  const handleExportCSV = async () => {
+    try {
+      const response = await fetch("/api/incidents/export.csv");
+      if (!response.ok) throw new Error("Export failed");
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "incidents.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export error:", error);
+    }
   };
 
   const getSeverityColor = (severity: string) => {

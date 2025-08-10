@@ -3,6 +3,7 @@ import IncidentForm from "@/components/incident-form";
 import AiSuggestionsPanel from "@/components/ai-suggestions-panel";
 import TeamsCardPreview from "@/components/teams-card-preview";
 import IncidentHistory from "@/components/incident-history";
+import AuditTrail from "@/components/audit-trail";
 import { EnrichResponse } from "@shared/schema";
 
 export default function Home() {
@@ -105,9 +106,12 @@ export default function Home() {
             <TeamsCardPreview incident={lastSavedIncident} />
           </div>
 
-          {/* Right Column: Incident History */}
+          {/* Right Column: Incident History + Audit Trail */}
           <div className="space-y-6">
             <IncidentHistory />
+            {lastSavedIncident && (
+              <AuditTrail incidentId={lastSavedIncident.id} />
+            )}
           </div>
         </div>
       </div>

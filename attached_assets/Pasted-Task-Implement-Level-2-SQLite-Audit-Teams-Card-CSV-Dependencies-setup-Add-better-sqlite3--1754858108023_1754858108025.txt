@@ -1,0 +1,67 @@
+Task: Implement Level 2 (SQLite + Audit + Teams Card + CSV)
+Dependencies & setup
+Add better-sqlite3 and create /data/app.db on boot (ensure folder exists).
+Create DAO layer: db/index.js, db/migrate.js with SQL:
+CREATE TABLE IF NOT EXISTS incidents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  address TEXT,
+  description TEXT NOT NULL,
+  category TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  next_steps_json TEXT NOT NULL,
+  customer_message TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_suggestions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  incident_id INTEGER NOT NULL,
+  raw_json TEXT NOT NULL,
+  model TEXT,
+  prompt_version TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(incident_id) REFERENCES incidents(id)
+);
+CREATE TABLE IF NOT EXISTS audits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  incident_id INTEGER NOT NULL,
+  before_json TEXT NOT NULL,
+  after_json TEXT NOT NULL,
+  changed_fields_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(incident_id) REFERENCES incidents(id)
+);
+Run migrations automatically at server start; log success.
+API changes
+POST /api/incidents:
+Accept payload { address, description, category, severity, summary, nextSteps[], customerMessage, aiSuggestionRaw? }.
+Convert nextSteps[] → next_steps_json (JSON.stringify).
+Insert row into incidents; return inserted record.
+If aiSuggestionRaw present, also:
+Insert into ai_suggestions.
+Compute changedFields (array of field names differing from suggestion).
+Insert into audits with before_json = suggestion JSON and after_json = final JSON.
+GET /api/incidents:
+Add optional filters severity, category. Order by created_at desc.
+GET /api/incidents/:id:
+Return incident + arrays: aiSuggestions[] and audits[].
+GET /api/incidents/export.csv:
+CSV columns: id, created_at, address, category, severity, summary, next_steps (pipe-joined), customer_message.
+Frontend updates
+IncidentList: add filter pills (All/High/Med/Low and categories). Add “Export CSV” button (hits /api/incidents/export.csv).
+IncidentForm:
+When Enrich completes, keep the raw suggestion JSON in state.
+On Save, send { ...finalFields, aiSuggestionRaw }.
+After save, show a small badge like “Saved • 3 fields changed from AI”.
+TeamsCard.jsx:
+Props: {category, severity, summary, nextSteps}.
+Render clean card; buttons Copy Markdown (generate markdown string) and Copy JSON (Adaptive Card sample structure).
+Config & README
+Document env: USE_OPENAI, OPENAI_API_KEY, OPENAI_MODEL, TZ (for timestamps).
+Add note: DB file at /data/app.db; how to reset DB.
+Acceptance tests
+Create incident via DummyAI; save; refresh → persists.
+Regenerate with OpenAI (if key available) → suggestions change; Save → Audit row shows changed fields.
+Filters work; CSV downloads with data.
+Teams card preview renders and copy buttons work.

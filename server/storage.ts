@@ -1,5 +1,6 @@
-import { type Incident, type InsertIncident, type AiSuggestion, type InsertAiSuggestion, type Audit, type InsertAudit } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type Incident, type InsertIncident, type AiSuggestion, type InsertAiSuggestion, type Audit, type InsertAudit, incidents, aiSuggestions, audits } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // Incidents
@@ -16,79 +17,74 @@ export interface IStorage {
   getAuditsByIncident(incidentId: number): Promise<Audit[]>;
 }
 
-export class MemStorage implements IStorage {
-  private incidents: Map<number, Incident> = new Map();
-  private aiSuggestions: Map<number, AiSuggestion> = new Map();
-  private audits: Map<number, Audit> = new Map();
-  private incidentIdCounter = 1;
-  private aiSuggestionIdCounter = 1;
-  private auditIdCounter = 1;
 
+
+export class DatabaseStorage implements IStorage {
   async createIncident(insertIncident: InsertIncident): Promise<Incident> {
-    const id = this.incidentIdCounter++;
-    const now = new Date();
-    const incident: Incident = {
-      id,
-      ...insertIncident,
-      address: insertIncident.address || null,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.incidents.set(id, incident);
+    const [incident] = await db
+      .insert(incidents)
+      .values({
+        ...insertIncident,
+        address: insertIncident.address || null,
+      })
+      .returning();
     return incident;
   }
 
   async getIncident(id: number): Promise<Incident | undefined> {
-    return this.incidents.get(id);
+    const [incident] = await db.select().from(incidents).where(eq(incidents.id, id));
+    return incident || undefined;
   }
 
   async getIncidents(filters?: { severity?: string; category?: string }): Promise<Incident[]> {
-    let incidents = Array.from(this.incidents.values());
+    let query = db.select().from(incidents);
     
-    if (filters?.severity) {
-      incidents = incidents.filter(i => i.severity === filters.severity);
-    }
-    if (filters?.category) {
-      incidents = incidents.filter(i => i.category === filters.category);
+    if (filters?.severity && filters?.category) {
+      query = query.where(and(
+        eq(incidents.severity, filters.severity),
+        eq(incidents.category, filters.category)
+      ));
+    } else if (filters?.severity) {
+      query = query.where(eq(incidents.severity, filters.severity));
+    } else if (filters?.category) {
+      query = query.where(eq(incidents.category, filters.category));
     }
     
-    // Sort by created date descending
-    return incidents.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const results = await query.orderBy(desc(incidents.createdAt));
+    return results;
   }
 
   async createAiSuggestion(insertSuggestion: InsertAiSuggestion): Promise<AiSuggestion> {
-    const id = this.aiSuggestionIdCounter++;
-    const suggestion: AiSuggestion = {
-      id,
-      ...insertSuggestion,
-      createdAt: new Date(),
-    };
-    this.aiSuggestions.set(id, suggestion);
+    const [suggestion] = await db
+      .insert(aiSuggestions)
+      .values(insertSuggestion)
+      .returning();
     return suggestion;
   }
 
   async getAiSuggestionsByIncident(incidentId: number): Promise<AiSuggestion[]> {
-    return Array.from(this.aiSuggestions.values())
-      .filter(s => s.incidentId === incidentId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db
+      .select()
+      .from(aiSuggestions)
+      .where(eq(aiSuggestions.incidentId, incidentId))
+      .orderBy(desc(aiSuggestions.createdAt));
   }
 
   async createAudit(insertAudit: InsertAudit): Promise<Audit> {
-    const id = this.auditIdCounter++;
-    const audit: Audit = {
-      id,
-      ...insertAudit,
-      createdAt: new Date(),
-    };
-    this.audits.set(id, audit);
+    const [audit] = await db
+      .insert(audits)
+      .values(insertAudit)
+      .returning();
     return audit;
   }
 
   async getAuditsByIncident(incidentId: number): Promise<Audit[]> {
-    return Array.from(this.audits.values())
-      .filter(a => a.incidentId === incidentId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db
+      .select()
+      .from(audits)
+      .where(eq(audits.incidentId, incidentId))
+      .orderBy(desc(audits.createdAt));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

@@ -133,6 +133,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/incidents/export.csv", async (req, res) => {
+    try {
+      const incidents = await storage.getIncidents();
+      
+      // CSV headers
+      const headers = ["id", "created_at", "address", "category", "severity", "summary", "next_steps", "customer_message"];
+      
+      // Convert incidents to CSV rows
+      const csvRows = incidents.map(incident => {
+        const nextSteps = JSON.parse(incident.nextStepsJson).join(" | ");
+        return [
+          incident.id,
+          incident.createdAt.toISOString(),
+          incident.address || "",
+          incident.category,
+          incident.severity,
+          `"${incident.summary.replace(/"/g, '""')}"`, // Escape quotes in CSV
+          `"${nextSteps.replace(/"/g, '""')}"`,
+          `"${incident.customerMessage.replace(/"/g, '""')}"`,
+        ].join(",");
+      });
+
+      const csvContent = [headers.join(","), ...csvRows].join("\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", 'attachment; filename="incidents.csv"');
+      res.send(csvContent);
+    } catch (error) {
+      console.error("CSV export error:", error);
+      res.status(500).json({ error: "Failed to export incidents" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

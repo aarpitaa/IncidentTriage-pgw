@@ -47,6 +47,100 @@ ${incident.customerMessage}
     });
   };
 
+  const handleCopyJSON = () => {
+    if (!incident) return;
+
+    const nextSteps = JSON.parse(incident.nextStepsJson);
+    const incidentNumber = `INC-${new Date().getFullYear()}-${incident.id.toString().padStart(4, '0')}`;
+    
+    const adaptiveCard = {
+      type: "AdaptiveCard",
+      body: [
+        {
+          type: "TextBlock",
+          size: "Medium",
+          weight: "Bolder",
+          text: `Incident ${incidentNumber}`
+        },
+        {
+          type: "ColumnSet",
+          columns: [
+            {
+              type: "Column",
+              items: [
+                {
+                  type: "TextBlock",
+                  text: `**Severity:** ${incident.severity}`,
+                  wrap: true
+                }
+              ],
+              width: "stretch"
+            },
+            {
+              type: "Column",
+              items: [
+                {
+                  type: "TextBlock",
+                  text: `**Category:** ${incident.category}`,
+                  wrap: true
+                }
+              ],
+              width: "stretch"
+            }
+          ]
+        },
+        {
+          type: "TextBlock",
+          text: "**Summary**",
+          weight: "Bolder",
+          spacing: "Medium"
+        },
+        {
+          type: "TextBlock",
+          text: incident.summary,
+          wrap: true
+        },
+        {
+          type: "TextBlock",
+          text: "**Next Steps**",
+          weight: "Bolder",
+          spacing: "Medium"
+        },
+        ...nextSteps.map((step: string) => ({
+          type: "TextBlock",
+          text: `• ${step}`,
+          wrap: true
+        })),
+        {
+          type: "TextBlock",
+          text: "**Customer Message**",
+          weight: "Bolder",
+          spacing: "Medium"
+        },
+        {
+          type: "TextBlock",
+          text: incident.customerMessage,
+          wrap: true
+        }
+      ],
+      "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+      version: "1.5"
+    };
+
+    navigator.clipboard.writeText(JSON.stringify(adaptiveCard, null, 2)).then(() => {
+      toast({
+        title: "Copied to Clipboard",
+        description: "Adaptive Card JSON has been copied to your clipboard.",
+      });
+    }).catch(() => {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy to clipboard. Please try again.",
+        variant: "destructive",
+      });
+    });
+  };
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "High": return "bg-red-100 text-red-800";
@@ -71,14 +165,24 @@ ${incident.customerMessage}
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium text-gray-900">Teams Card Preview</h3>
-            <Button 
-              variant="outline"
-              size="sm"
-              disabled
-            >
-              <i className="fas fa-copy mr-2"></i>
-              Copy as Markdown
-            </Button>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline"
+                size="sm"
+                disabled
+              >
+                <i className="fas fa-copy mr-2"></i>
+                Copy Markdown
+              </Button>
+              <Button 
+                variant="outline"
+                size="sm"
+                disabled
+              >
+                <i className="fas fa-copy mr-2"></i>
+                Copy JSON
+              </Button>
+            </div>
           </div>
         </div>
         <div className="p-6">
@@ -99,14 +203,24 @@ ${incident.customerMessage}
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">Teams Card Preview</h3>
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleCopyMarkdown}
-          >
-            <i className="fas fa-copy mr-2"></i>
-            Copy as Markdown
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleCopyMarkdown}
+            >
+              <i className="fas fa-copy mr-2"></i>
+              Copy Markdown
+            </Button>
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleCopyJSON}
+            >
+              <i className="fas fa-copy mr-2"></i>
+              Copy JSON
+            </Button>
+          </div>
         </div>
       </div>
       <div className="p-6">
