@@ -64,14 +64,25 @@ export default function IncidentsMap() {
   const initializeMap = () => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Philadelphia center coordinates
-    const map = L.map(mapContainerRef.current).setView([39.9526, -75.1652], 11);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    try {
+      // Philadelphia center coordinates
+      const map = L.map(mapContainerRef.current, {
+        center: [39.9526, -75.1652],
+        zoom: 11,
+        zoomControl: true,
+        attributionControl: true
+      });
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
 
-    mapRef.current = map;
+      mapRef.current = map;
+      console.log('Map initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize map:', error);
+    }
   };
 
   const clearMarkers = () => {
@@ -138,8 +149,13 @@ export default function IncidentsMap() {
   };
 
   useEffect(() => {
-    initializeMap();
+    // Small delay to ensure Leaflet is fully loaded
+    const timer = setTimeout(() => {
+      initializeMap();
+    }, 100);
+
     return () => {
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

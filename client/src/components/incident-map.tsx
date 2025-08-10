@@ -62,28 +62,39 @@ export default function IncidentMap({ incident, onCoordinatesUpdate }: IncidentM
   const initializeMap = (lat: number, lng: number) => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const map = L.map(mapContainerRef.current).setView([lat, lng], 13);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    try {
+      const map = L.map(mapContainerRef.current, {
+        center: [lat, lng],
+        zoom: 13,
+        zoomControl: true,
+        attributionControl: true
+      });
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
 
-    const marker = L.marker([lat, lng], {
-      icon: createCustomMarker(incident.severity)
-    }).addTo(map);
+      const marker = L.marker([lat, lng], {
+        icon: createCustomMarker(incident.severity)
+      }).addTo(map);
 
-    marker.bindPopup(`
-      <div style="text-align: center;">
-        <strong>Incident ${incident.id}</strong><br/>
-        <span style="color: ${getSeverityColor(incident.severity)}; font-weight: bold;">
-          ${incident.severity} Severity
-        </span>
-        ${incident.address ? `<br/><small>${incident.address}</small>` : ''}
-      </div>
-    `);
+      marker.bindPopup(`
+        <div style="text-align: center;">
+          <strong>Incident ${incident.id}</strong><br/>
+          <span style="color: ${getSeverityColor(incident.severity)}; font-weight: bold;">
+            ${incident.severity} Severity
+          </span>
+          ${incident.address ? `<br/><small>${incident.address}</small>` : ''}
+        </div>
+      `);
 
-    mapRef.current = map;
-    markerRef.current = marker;
+      mapRef.current = map;
+      markerRef.current = marker;
+      console.log('Individual incident map initialized');
+    } catch (error) {
+      console.error('Failed to initialize incident map:', error);
+    }
   };
 
   const handleGeocode = async () => {

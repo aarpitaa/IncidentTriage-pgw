@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import AddressAutocomplete from "@/components/address-autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { enrichRequestSchema, EnrichRequest, EnrichResponse } from "@shared/schema";
@@ -96,9 +97,15 @@ export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormPr
                 <FormItem>
                   <FormLabel>Service Address</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="123 Main Street, Anytown, ST 12345"
-                      {...field}
+                    <AddressAutocomplete
+                      value={field.value}
+                      onChange={field.onChange}
+                      onSelect={(address, lat, lng) => {
+                        field.onChange(address);
+                        // Could store coordinates for later use
+                        console.log(`Selected address coordinates: ${lat}, ${lng}`);
+                      }}
+                      placeholder="Start typing address (e.g. 123 Main Street, Philadelphia, PA)"
                     />
                   </FormControl>
                   <FormMessage />
