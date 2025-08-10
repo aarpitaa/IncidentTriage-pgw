@@ -1,6 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import OpenAI from "openai";
 import { storage } from "./storage";
 import { createAIService } from "./services/ai";
 import { enrichRequestSchema, insertIncidentSchema, categoryEnum, severityEnum } from "@shared/schema";
@@ -11,11 +15,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Build info
   const BUILD_SHA = process.env.REPL_SLUG || process.env.REPLIT_SLUG || 'local-dev';
 
+  // Create temp audio directory
+  const audioTempDir = path.join(process.cwd(), 'tmp', 'audio');
+  fs.mkdirSync(audioTempDir, { recursive: true });
+
+  // Multer setup for audio uploads
+  const upload = multer({ 
+    dest: audioTempDir,
+    limits: {
+      fileSize: 25 * 1024 * 1024, // 25MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedMimes = ['audio/webm', 'audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg'];
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid audio format. Please use webm, wav, mp3, or ogg.'));
+      }
+    }
+  });
+
   // Rate limiting for AI enrichment
   const enrichRateLimit = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 20, // 20 requests per minute per IP
     message: { error: "Too many AI enrichment requests, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Rate limiting for transcription
+  const transcribeRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10, // 10 requests per minute per IP
+    message: { error: "Too many transcription requests, please try again later." },
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -134,6 +167,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Create incident error:", error);
       res.status(400).json({ error: "Failed to create incident" });
+    }
+  });
+
+  // PII Sanitization helper
+  function sanitizePII(text: string): string {
+    let sanitized = text;
+    
+    // Email addresses
+    sanitized = sanitized.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, (match) => {
+      const parts = match.split('@');
+      if (parts.length === 2) {
+        const [user, domain] = parts;
+        const domainParts = domain.split('.');
+        return `${user[0]}***@***.${domainParts[domainParts.length - 1]}`;
+      }
+      return match;
+    });
+    
+    // Phone numbers (10-11 digits)
+    sanitized = sanitized.replace(/\b(?:\+?1[\s-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, '(***) ***-****');
+    
+    // House numbers (3-5 digits at start of address)
+    sanitized = sanitized.replace(/\b(\d{3,5})\s+([A-Za-z])/g, (match, digits, rest) => {
+      return `${'*'.repeat(digits.length)} ${rest}`;
+    });
+    
+    return sanitized;
+  }
+
+  // Transcription endpoint
+  app.post("/api/transcribe", transcribeRateLimit, upload.single('file'), async (req, res) => {
+    let filePath: string | undefined;
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No audio file provided" });
+      }
+
+      filePath = req.file.path;
+      const useTranscription = process.env.USE_TRANSCRIPTION !== 'false';
+      const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+
+      // If transcription is disabled or no OpenAI key, return dummy transcript
+      if (!useTranscription || !hasOpenAIKey) {
+        const dummyTranscripts = [
+          "Caller reports strong gas odor in basement at 1422 Pine Street, pilot light out. No visible flame.",
+          "Power outage affecting entire neighborhood on Oak Avenue since 2 PM. Multiple customers calling.",
+          "Water main break near intersection of 5th and Main. Water pressure very low throughout area.",
+          "Billing dispute for account ending in 4567. Customer says meter reading is incorrect.",
+          "Gas leak reported outside apartment building on Elm Street. Residents evacuated to safe distance."
+        ];
+        
+        const randomTranscript = dummyTranscripts[Math.floor(Math.random() * dummyTranscripts.length)];
+        
+        return res.json({
+          transcript: randomTranscript,
+          confidence: null,
+          segments: [],
+          mode: "dummy"
+        });
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Transcribe audio with OpenAI Whisper
+      const transcription = await openai.audio.transcriptions.create({
+        file: fs.createReadStream(filePath),
+        model: process.env.TRANSCRIBE_MODEL || 'whisper-1',
+        response_format: 'verbose_json' as any,
+        language: 'en'
+      });
+
+      // Calculate confidence from segments if available (typing issue with segments)
+      let confidence = null;
+      const segments = (transcription as any).segments || [];
+      if (segments && segments.length > 0) {
+        const avgLogProb = segments.reduce((sum: number, seg: any) => sum + (seg.avg_logprob || 0), 0) / segments.length;
+        confidence = Math.round(100 * Math.exp(avgLogProb));
+      }
+
+      res.json({
+        transcript: transcription.text,
+        confidence,
+        segments,
+        mode: "openai"
+      });
+
+    } catch (error) {
+      console.error("Transcription error:", error);
+      
+      // Return helpful error message
+      if (error instanceof Error) {
+        if (error.message.includes('audio')) {
+          return res.status(400).json({ error: "Invalid audio file format" });
+        }
+        if (error.message.includes('rate limit')) {
+          return res.status(429).json({ error: "Rate limit exceeded, please try again later" });
+        }
+      }
+      
+      res.status(500).json({ error: "Failed to transcribe audio" });
+    } finally {
+      // Clean up temp file
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (cleanupError) {
+          console.warn("Failed to clean up temp file:", cleanupError);
+        }
+      }
+    }
+  });
+
+  // PII Sanitization endpoint
+  app.post("/api/sanitize", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: "Text is required" });
+      }
+
+      const sanitized = sanitizePII(text);
+      res.json({ sanitized });
+    } catch (error) {
+      console.error("Sanitization error:", error);
+      res.status(500).json({ error: "Failed to sanitize text" });
     }
   });
 

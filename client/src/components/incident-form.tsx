@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import AddressAutocomplete from "@/components/address-autocomplete";
+import VoiceRecorder from "@/components/voice-recorder";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { enrichRequestSchema, EnrichRequest, EnrichResponse } from "@shared/schema";
 import { useState } from "react";
+import { Mic, Keyboard } from "lucide-react";
 
 interface IncidentFormProps {
   onAiEnrichment: (suggestion: EnrichResponse) => void;
@@ -25,6 +27,7 @@ const sampleDescriptions = {
 export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
 
   const form = useForm<EnrichRequest>({
     resolver: zodResolver(enrichRequestSchema),
@@ -74,7 +77,13 @@ export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormPr
 
   const handleClear = () => {
     form.reset();
+    setIsVoiceMode(false);
     onClear();
+  };
+
+  const handleVoiceTranscription = (transcript: string) => {
+    form.setValue('description', transcript);
+    setIsVoiceMode(false);
   };
 
   const handleSampleClick = (description: string) => {
@@ -84,12 +93,46 @@ export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormPr
   return (
     <div className="bg-white rounded-lg shadow border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-medium text-gray-900">New Incident Report</h2>
-        <p className="text-sm text-gray-500 mt-1">Enter incident details to get AI-powered classification and response suggestions</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-medium text-gray-900">New Incident Report</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {isVoiceMode ? "Record your incident description" : "Enter incident details to get AI-powered classification and response suggestions"}
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={isVoiceMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsVoiceMode(!isVoiceMode)}
+              className="flex items-center gap-2"
+            >
+              {isVoiceMode ? (
+                <>
+                  <Keyboard className="w-4 h-4" />
+                  Type
+                </>
+              ) : (
+                <>
+                  <Mic className="w-4 h-4" />
+                  Voice
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
       <div className="p-6">
-        <Form {...form}>
-          <form className="space-y-4">
+        {isVoiceMode ? (
+          <VoiceRecorder 
+            onTranscriptionComplete={handleVoiceTranscription}
+            onClose={() => setIsVoiceMode(false)}
+          />
+        ) : (
+          <Form {...form}>
+            <form className="space-y-4">
             <FormField
               control={form.control}
               name="address"
@@ -98,10 +141,10 @@ export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormPr
                   <FormLabel>Service Address</FormLabel>
                   <FormControl>
                     <AddressAutocomplete
-                      value={field.value}
+                      value={field.value || ""}
                       onChange={field.onChange}
                       onSelect={(address, lat, lng) => {
-                        field.onChange(address);
+                        field.onChange(address || "");
                         // Could store coordinates for later use
                         console.log(`Selected address coordinates: ${lat}, ${lng}`);
                       }}
@@ -176,6 +219,7 @@ export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormPr
             </div>
           </form>
         </Form>
+        )}
       </div>
     </div>
   );
