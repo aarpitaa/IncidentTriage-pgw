@@ -174,7 +174,7 @@ export default function EnhancedIncidentHistory() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Incident History</CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <Button variant="outline" size="sm" onClick={handleExportCSV}>
                 <i className="fas fa-download mr-2"></i>
                 Export CSV
@@ -196,8 +196,8 @@ export default function EnhancedIncidentHistory() {
         <CardContent>
           {/* Search and Filters */}
           <div className="space-y-4 mb-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1 min-w-0">
                 <Input
                   placeholder="Search incidents..."
                   value={searchQuery}
@@ -205,9 +205,9 @@ export default function EnhancedIncidentHistory() {
                   className="w-full"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-shrink-0">
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-32">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -216,7 +216,7 @@ export default function EnhancedIncidentHistory() {
                   </SelectContent>
                 </Select>
                 <Select value={sortDir} onValueChange={setSortDir}>
-                  <SelectTrigger className="w-20">
+                  <SelectTrigger className="w-16">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -228,14 +228,14 @@ export default function EnhancedIncidentHistory() {
             </div>
 
             {/* Filter Pills */}
-            <div className="flex flex-wrap gap-2">
-              <div className="flex items-center space-x-1">
-                <span className="text-sm text-gray-600">Severity:</span>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">Severity:</span>
                 {["High", "Medium", "Low"].map((sev) => (
                   <button
                     key={sev}
                     onClick={() => setSeverityFilter(severityFilter === sev ? "" : sev)}
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
+                    className={`text-xs px-3 py-1.5 rounded border transition-colors ${
                       severityFilter === sev 
                         ? getSeverityColor(sev)
                         : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -245,13 +245,13 @@ export default function EnhancedIncidentHistory() {
                   </button>
                 ))}
               </div>
-              <div className="flex items-center space-x-1">
-                <span className="text-sm text-gray-600">Category:</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">Category:</span>
                 {["Leak", "Outage", "Billing", "Meter", "Odor", "Other"].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setCategoryFilter(categoryFilter === cat ? "" : cat)}
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
+                    className={`text-xs px-3 py-1.5 rounded border transition-colors ${
                       categoryFilter === cat 
                         ? getCategoryColor(cat)
                         : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -260,12 +260,12 @@ export default function EnhancedIncidentHistory() {
                     {categoryIcons[cat]} {cat}
                   </button>
                 ))}
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs ml-2">
+                    Clear all
+                  </Button>
+                )}
               </div>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">
-                  Clear all
-                </Button>
-              )}
             </div>
           </div>
 
@@ -296,24 +296,24 @@ export default function EnhancedIncidentHistory() {
                   onClick={() => setSelectedIncidentId(incident.id)}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="text-sm font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center flex-wrap gap-2 mb-2">
+                        <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
                           INC-{new Date().getFullYear()}-{incident.id.toString().padStart(4, '0')}
                         </span>
-                        <Badge className={`${getSeverityColor(incident.severity)} border text-xs`}>
+                        <Badge className={`${getSeverityColor(incident.severity)} border text-xs whitespace-nowrap`}>
                           {incident.severity}
                         </Badge>
-                        <Badge className={`${getCategoryColor(incident.category)} border text-xs`}>
+                        <Badge className={`${getCategoryColor(incident.category)} border text-xs whitespace-nowrap`}>
                           {categoryIcons[incident.category]} {incident.category}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{incident.summary}</p>
+                      <p className="text-sm text-gray-600 mb-1 leading-relaxed">{incident.summary}</p>
                       {incident.address && (
                         <p className="text-xs text-gray-500">📍 {incident.address}</p>
                       )}
                     </div>
-                    <div className="text-xs text-gray-400 ml-4">
+                    <div className="text-xs text-gray-400 ml-4 whitespace-nowrap">
                       {formatDistanceToNow(new Date(incident.createdAt))} ago
                     </div>
                   </div>

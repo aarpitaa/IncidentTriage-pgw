@@ -60,8 +60,8 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           {/* Left Column: Incident Form + AI Suggestions */}
           <div className="xl:col-span-2 space-y-6">
             <IncidentForm 
@@ -101,7 +101,7 @@ export default function Home() {
           </div>
 
           {/* Right Column: Incident History + Audit Trail */}
-          <div className="space-y-6">
+          <div className="xl:col-span-3 space-y-6">
             <EnhancedIncidentHistory />
             {lastSavedIncident && (
               <AuditTrail incidentId={lastSavedIncident.id} />
