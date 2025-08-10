@@ -157,23 +157,60 @@ export default function IncidentsMap() {
   const geocodeAllIncidents = async () => {
     setIsGeocoding(true);
     try {
+      // Clear existing markers first
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      
+      // Re-add all markers
       await addIncidentMarkers();
     } finally {
       setIsGeocoding(false);
     }
   };
 
+  const refreshMap = () => {
+    console.log('Refreshing map...');
+    
+    // Force full refresh
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+    
+    // Clear markers
+    markersRef.current = [];
+    
+    // Reinitialize after a short delay
+    setTimeout(() => {
+      const checkLeafletAndInit = () => {
+        if (typeof L !== 'undefined') {
+          initializeMap();
+        } else {
+          setTimeout(checkLeafletAndInit, 100);
+        }
+      };
+      checkLeafletAndInit();
+    }, 100);
+  };
+
   useEffect(() => {
-    // Check if Leaflet is loaded, if not wait for it
+    let attempts = 0;
+    const maxAttempts = 50; // 10 seconds max wait
+    
     const checkLeafletAndInit = () => {
-      if (typeof L !== 'undefined') {
+      if (typeof L !== 'undefined' && L.map) {
+        console.log('Leaflet loaded, initializing map...');
         initializeMap();
-      } else {
-        console.log('Waiting for Leaflet to load...');
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        console.log(`Waiting for Leaflet... attempt ${attempts}`);
         setTimeout(checkLeafletAndInit, 200);
+      } else {
+        console.error('Leaflet failed to load after maximum attempts');
       }
     };
 
+    // Start checking immediately, no delay
     checkLeafletAndInit();
 
     return () => {
@@ -185,7 +222,11 @@ export default function IncidentsMap() {
   }, []);
 
   useEffect(() => {
-    if (incidents.length > 0) {
+    if (incidents.length > 0 && mapRef.current) {
+      // Clear existing markers first
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      // Add new markers
       addIncidentMarkers();
     }
   }, [incidents]);
@@ -238,7 +279,7 @@ export default function IncidentsMap() {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={geocodeAllIncidents} 
+            onClick={refreshMap} 
             disabled={isGeocoding}
           >
             {isGeocoding ? (
