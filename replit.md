@@ -16,6 +16,8 @@ The AI Incident Triage Portal is a complete web application designed to streamli
 
 **Status:** Ready for deployment - All major features implemented and tested.
 
+**One-line Description:** A comprehensive AI-powered incident triage portal for utility companies with intelligent classification, interactive mapping, and real-time analytics.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
