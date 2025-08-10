@@ -1,12 +1,18 @@
 import { type Incident, type InsertIncident, type AiSuggestion, type InsertAiSuggestion, type Audit, type InsertAudit, incidents, aiSuggestions, audits } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, asc, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // Incidents
   createIncident(incident: InsertIncident): Promise<Incident>;
   getIncident(id: number): Promise<Incident | undefined>;
-  getIncidents(filters?: { severity?: string; category?: string }): Promise<Incident[]>;
+  getIncidents(filters?: { 
+    severity?: string; 
+    category?: string; 
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+  }): Promise<Incident[]>;
   
   // AI Suggestions
   createAiSuggestion(suggestion: InsertAiSuggestion): Promise<AiSuggestion>;
@@ -36,21 +42,44 @@ export class DatabaseStorage implements IStorage {
     return incident || undefined;
   }
 
-  async getIncidents(filters?: { severity?: string; category?: string }): Promise<Incident[]> {
+  async getIncidents(filters?: { 
+    severity?: string; 
+    category?: string; 
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+  }): Promise<Incident[]> {
     let query = db.select().from(incidents);
     
-    if (filters?.severity && filters?.category) {
-      query = query.where(and(
-        eq(incidents.severity, filters.severity),
-        eq(incidents.category, filters.category)
+    // Build WHERE conditions
+    const conditions = [];
+    
+    if (filters?.severity) {
+      conditions.push(eq(incidents.severity, filters.severity));
+    }
+    if (filters?.category) {
+      conditions.push(eq(incidents.category, filters.category));
+    }
+    if (filters?.search) {
+      const searchTerm = `%${filters.search}%`;
+      conditions.push(or(
+        ilike(incidents.address, searchTerm),
+        ilike(incidents.description, searchTerm),
+        ilike(incidents.summary, searchTerm)
       ));
-    } else if (filters?.severity) {
-      query = query.where(eq(incidents.severity, filters.severity));
-    } else if (filters?.category) {
-      query = query.where(eq(incidents.category, filters.category));
     }
     
-    const results = await query.orderBy(desc(incidents.createdAt));
+    if (conditions.length === 1) {
+      query = query.where(conditions[0]);
+    } else if (conditions.length > 1) {
+      query = query.where(and(...conditions));
+    }
+    
+    // Apply sorting
+    const sortColumn = filters?.sortBy === 'updated_at' ? incidents.updatedAt : incidents.createdAt;
+    const sortDirection = filters?.sortDir === 'asc' ? asc : desc;
+    
+    const results = await query.orderBy(sortDirection(sortColumn));
     return results;
   }
 

@@ -2,7 +2,8 @@ import { useState } from "react";
 import IncidentForm from "@/components/incident-form";
 import AiSuggestionsPanel from "@/components/ai-suggestions-panel";
 import TeamsCardPreview from "@/components/teams-card-preview";
-import IncidentHistory from "@/components/incident-history";
+import EnhancedIncidentHistory from "@/components/enhanced-incident-history";
+import SettingsBanner from "@/components/settings-banner";
 import AuditTrail from "@/components/audit-trail";
 import { EnrichResponse } from "@shared/schema";
 
@@ -54,14 +55,7 @@ export default function Home() {
                 IncidentTriage<span className="text-primary italic text-sm">pgw</span>
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
-              {/* AI Status Indicator */}
-              <div className="flex items-center space-x-2 px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>AI Service: Active</span>
-              </div>
-              <div className="text-sm text-gray-500">Agent: Sarah Chen</div>
-            </div>
+            <SettingsBanner />
           </div>
         </div>
       </header>
@@ -108,7 +102,7 @@ export default function Home() {
 
           {/* Right Column: Incident History + Audit Trail */}
           <div className="space-y-6">
-            <IncidentHistory />
+            <EnhancedIncidentHistory />
             {lastSavedIncident && (
               <AuditTrail incidentId={lastSavedIncident.id} />
             )}
