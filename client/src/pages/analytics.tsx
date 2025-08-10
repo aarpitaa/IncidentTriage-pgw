@@ -98,11 +98,16 @@ export default function Analytics() {
       label: 'Incidents',
       data: data.bySeverity.map(s => s.count),
       backgroundColor: [
-        'var(--pill-high)',
-        'var(--pill-med)', 
-        'var(--pill-low)'
+        '#ef4444', // Red for High severity
+        '#fbbf24', // Yellow for Medium severity
+        '#22c55e'  // Green for Low severity
       ],
-      borderWidth: 1,
+      borderColor: [
+        '#dc2626', // Darker red border
+        '#f59e0b', // Darker yellow border
+        '#16a34a'  // Darker green border
+      ],
+      borderWidth: 2,
     }]
   };
 
@@ -114,9 +119,14 @@ export default function Analytics() {
     datasets: [{
       label: 'Incidents per Week',
       data: data.byWeek.map(w => w.count),
-      borderColor: 'var(--primary)',
-      backgroundColor: 'var(--primary)',
-      tension: 0.1,
+      borderColor: '#3b82f6', // Blue line
+      backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue fill
+      pointBackgroundColor: '#ef4444', // Red points
+      pointBorderColor: '#dc2626', // Darker red point border
+      pointRadius: 6,
+      pointHoverRadius: 8,
+      tension: 0.3,
+      fill: true,
     }]
   };
 
@@ -126,18 +136,34 @@ export default function Analytics() {
     plugins: {
       legend: {
         labels: {
-          color: 'var(--text)',
+          color: '#374151', // Dark gray text
+          font: {
+            size: 14,
+            weight: 'bold'
+          }
         }
       }
     },
     scales: {
       x: {
-        ticks: { color: 'var(--muted)' },
-        grid: { color: 'var(--border)' }
+        ticks: { 
+          color: '#6b7280', // Gray text
+          font: { weight: 'bold' }
+        },
+        grid: { 
+          color: 'rgba(156, 163, 175, 0.3)', // Light gray grid
+          borderColor: '#9ca3af'
+        }
       },
       y: {
-        ticks: { color: 'var(--muted)' },
-        grid: { color: 'var(--border)' }
+        ticks: { 
+          color: '#6b7280', // Gray text
+          font: { weight: 'bold' }
+        },
+        grid: { 
+          color: 'rgba(156, 163, 175, 0.3)', // Light gray grid
+          borderColor: '#9ca3af'
+        }
       }
     }
   };
