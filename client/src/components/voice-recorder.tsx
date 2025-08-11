@@ -90,9 +90,26 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
       setTranscript(sanitizePii ? sanitizePII(data.transcript) : data.transcript);
       setConfidence(data.confidence || null);
       setMode(data.mode);
+      
+      // Show appropriate toast based on transcription mode
+      let toastTitle = "Transcription Complete";
+      let toastDescription = `Audio transcribed successfully using ${data.mode === 'openai' ? 'OpenAI Whisper' : 'Sample AI'}`;
+      
+      if (data.mode === 'dummy-fallback') {
+        toastTitle = "Sample Transcription";
+        toastDescription = "Using sample text due to service limitations. Please edit as needed.";
+      } else if (data.mode === 'error-fallback') {
+        toastTitle = "Transcription Fallback";
+        toastDescription = "Service temporarily unavailable. Please edit the generated text.";
+      }
+      
+      if ((data as any).notice) {
+        toastDescription = (data as any).notice;
+      }
+      
       toast({
-        title: "Transcription Complete",
-        description: `Audio transcribed successfully using ${data.mode === 'openai' ? 'OpenAI Whisper' : 'Dummy AI'}`,
+        title: toastTitle,
+        description: toastDescription,
       });
     },
     onError: (error) => {
