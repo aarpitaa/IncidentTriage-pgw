@@ -168,10 +168,26 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
       analyserRef.current.fftSize = 256;
       source.connect(analyserRef.current);
 
-      // Set up media recorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Set up media recorder with fallback options
+      let mediaRecorder: MediaRecorder;
+      const options = [
+        { mimeType: 'audio/webm;codecs=opus' },
+        { mimeType: 'audio/webm' },
+        { mimeType: 'audio/mp4' },
+        { mimeType: 'audio/mpeg' },
+        { mimeType: 'audio/wav' },
+        {} // fallback with default
+      ];
+
+      let selectedOption: { mimeType?: string } = {};
+      for (const option of options) {
+        if (!option.mimeType || MediaRecorder.isTypeSupported(option.mimeType)) {
+          selectedOption = option;
+          break;
+        }
+      }
+
+      mediaRecorder = new MediaRecorder(stream, selectedOption);
       mediaRecorderRef.current = mediaRecorder;
 
       const chunks: BlobPart[] = [];
@@ -182,7 +198,8 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const mimeType = (selectedOption as any).mimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type: mimeType });
         setAudioBlob(blob);
         setFileSize(blob.size);
       };
@@ -206,9 +223,21 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
 
     } catch (error) {
       console.error("Error starting recording:", error);
+      let errorMessage = "Could not access microphone. Please check permissions.";
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = "Microphone access denied. Please allow microphone permissions and try again.";
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = "No microphone found. Please connect a microphone and try again.";
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage = "Voice recording is not supported in this browser.";
+        }
+      }
+      
       toast({
         title: "Recording Error",
-        description: "Could not access microphone. Please check permissions.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -243,6 +272,12 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
   const handleTranscribe = () => {
     if (audioBlob) {
       transcribeMutation.mutate(audioBlob);
+    } else {
+      toast({
+        title: "No Recording",
+        description: "Please record audio first before transcribing.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -387,9 +422,26 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
         </div>
       )}
 
-      {/* Tips */}
-      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-        <strong>Tips:</strong> Speak clearly and close to your microphone. Keep background noise to a minimum for best transcription quality.
+      {/* Demo button for testing without microphone */}
+      <div className="flex items-center justify-between pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const demoText = "Customer reports gas leak near 1234 Main Street. Strong odor detected in basement area. Pilot light appears to be out. No visible flames observed.";
+            setOriginalTranscript(demoText);
+            setTranscript(sanitizePii ? sanitizePII(demoText) : demoText);
+            setMode('dummy');
+            setConfidence(95);
+          }}
+          className="text-xs"
+        >
+          Try Demo Text
+        </Button>
+        
+        <div className="text-xs text-muted-foreground">
+          <strong>Tips:</strong> Speak clearly and close to your microphone for best quality.
+        </div>
       </div>
     </div>
   );

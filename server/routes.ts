@@ -26,8 +26,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       fileSize: 25 * 1024 * 1024, // 25MB limit
     },
     fileFilter: (req, file, cb) => {
-      const allowedMimes = ['audio/webm', 'audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg'];
-      if (allowedMimes.includes(file.mimetype)) {
+      const allowedMimes = [
+        'audio/webm', 
+        'audio/wav', 
+        'audio/mp3', 
+        'audio/mpeg', 
+        'audio/ogg',
+        'audio/webm;codecs=opus',
+        'audio/mp4',
+        'audio/x-wav'
+      ];
+      // Accept any audio format that starts with 'audio/'
+      if (allowedMimes.includes(file.mimetype) || file.mimetype.startsWith('audio/')) {
         cb(null, true);
       } else {
         cb(new Error('Invalid audio format. Please use webm, wav, mp3, or ogg.'));
@@ -42,6 +52,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     message: { error: "Too many AI enrichment requests, please try again later." },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => !req.ip, // Skip if no IP available
   });
 
   // Rate limiting for transcription
@@ -51,6 +62,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     message: { error: "Too many transcription requests, please try again later." },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => !req.ip, // Skip if no IP available
   });
 
   // CORS for frontend

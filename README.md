@@ -8,11 +8,13 @@ IncidentTriagepgw is a modern web application designed to streamline utility inc
 
 ## ✨ Key Features
 
-### 🤖 AI-Powered Classification
+### 🤖 AI-Powered Intelligence
 - **Intelligent Incident Analysis**: Automatically categorizes incidents (Electrical, Gas, Water, Billing, etc.)
 - **Severity Assessment**: AI determines incident severity levels (High, Medium, Low)
 - **Smart Summaries**: Generates concise incident summaries from detailed descriptions
 - **Response Suggestions**: Provides next steps and customer communication templates
+- **Voice-to-Ticket**: Record audio descriptions and convert to text using OpenAI Whisper
+- **PII Sanitization**: Automatic removal of sensitive information (emails, phone numbers, addresses)
 - **Dual AI Backend**: Uses OpenAI for production with DummyAI fallback for development
 
 ### 🗺️ Interactive Mapping
@@ -33,6 +35,7 @@ IncidentTriagepgw is a modern web application designed to streamline utility inc
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
 - **Accessible Components**: Built with Radix UI primitives
 - **Professional Styling**: Modern design with Tailwind CSS
+- **Voice Recording Interface**: Integrated audio recording with live waveform visualization
 - **Teams Integration**: Card previews for sharing incidents in Microsoft Teams
 
 ### 🔒 Enterprise Features
@@ -60,7 +63,8 @@ IncidentTriagepgw is a modern web application designed to streamline utility inc
 - **TypeScript** - Server-side type safety
 - **PostgreSQL** - Robust relational database
 - **Drizzle ORM** - Type-safe database operations
-- **OpenAI API** - AI-powered incident analysis
+- **OpenAI API** - AI-powered incident analysis and audio transcription
+- **Multer** - File upload handling for audio recordings
 - **Zod** - Runtime type validation
 
 ### Development Tools
@@ -134,6 +138,24 @@ IncidentTriagepgw is a modern web application designed to streamline utility inc
 3. Export data using the "Export CSV" button
 4. Filter by date ranges and categories
 
+### Voice-to-Ticket Feature
+1. Click the "Voice" button in the New Incident Report card header
+2. Click "Start Recording" and speak your incident description
+3. Watch the live waveform visualization and audio level meter
+4. Click "Stop Recording" when finished
+5. Click "Transcribe" to convert speech to text using OpenAI Whisper
+6. Toggle PII sanitization to mask sensitive information automatically
+7. Click "Use This Transcript" to populate the incident description
+
+**Voice Features:**
+- **OpenAI Whisper Integration**: High-quality speech-to-text transcription
+- **Dummy Fallback**: Works without API keys for development
+- **PII Sanitization**: Automatic masking of emails, phone numbers, and addresses
+- **Live Audio Visualization**: Real-time waveform and input level monitoring
+- **Multiple Audio Formats**: Supports WebM, WAV, MP3, and OGG
+- **Rate Limiting**: Protected endpoints to prevent abuse
+- **Demo Mode**: Test functionality without microphone access
+
 ### Theme Switching
 - Use the theme toggle in the header
 - Preferences persist across sessions
@@ -144,14 +166,26 @@ IncidentTriagepgw is a modern web application designed to streamline utility inc
 ### AI Service Configuration
 The application supports both OpenAI and a fallback DummyAI service:
 
-```typescript
-// Use OpenAI (requires API key)
+```bash
+# OpenAI Configuration (for AI enrichment and voice transcription)
 USE_OPENAI=true
-OPENAI_API_KEY=your_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o
 
-// Use DummyAI (no API key required)
+# Voice Transcription Configuration
+USE_TRANSCRIPTION=true
+TRANSCRIBE_MODEL=whisper-1
+
+# DummyAI Fallback (no API key required)
 USE_OPENAI=false
+USE_TRANSCRIPTION=false
 ```
+
+**Voice Transcription Notes:**
+- Requires microphone permissions in browser
+- Supports audio files up to 25MB
+- Rate limited to 10 requests per minute per IP
+- Automatically deletes temporary audio files after processing
 
 ### Database Configuration
 Supports PostgreSQL with connection pooling:
@@ -171,7 +205,7 @@ DATABASE_URL=postgresql://user:password@host:port/database
 
 ### Advanced AI Features
 - **Predictive Analytics**: Forecast incident patterns and resource needs
-- **Natural Language Processing**: Voice-to-text incident reporting
+- **Enhanced Voice Features**: Multi-language transcription and speaker identification
 - **Image Recognition**: Automatic incident classification from photos
 - **Multi-language Support**: International deployment capabilities
 
