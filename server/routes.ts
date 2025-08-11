@@ -281,18 +281,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (error.message.includes('quota') || error.message.includes('insufficient_quota') || (error as any).status === 429) {
           console.log("OpenAI quota exceeded, providing audio-aware fallback");
           
-          // Get file size to determine if actual audio was captured
-          const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
-          const fileSizeKB = audioBuffer.length / 1024;
+          // Get file size from the uploaded file
+          let fileSizeKB = 0;
+          if (fs.existsSync(filePath)) {
+            const stats = fs.statSync(filePath);
+            fileSizeKB = stats.size / 1024;
+          }
           
           let transcript: string;
           
           if (fileSizeKB > 5) {
             // Real audio was recorded, acknowledge it
-            transcript = `[Audio file recorded: ${fileSizeKB.toFixed(1)}KB] Your voice recording was captured successfully, but OpenAI transcription service quota is exceeded. Please type your description manually or provide a working OpenAI API key to transcribe your recording.`;
+            transcript = `[Audio file recorded: ${fileSizeKB.toFixed(1)}KB] Your voice recording was captured successfully, but OpenAI transcription service quota is exceeded. Please type your description manually or add credits to your OpenAI account.`;
           } else {
             // Very small audio file, likely silent
-            transcript = `No clear audio detected in ${fileSizeKB.toFixed(1)}KB recording. Please speak louder and closer to microphone, or type your description manually.`;
+            transcript = `Small audio file detected (${fileSizeKB.toFixed(1)}KB). Please speak louder and closer to microphone, or type your description manually.`;
           }
           
           return res.json({
@@ -300,7 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             confidence: null,
             segments: [],
             mode: "quota-exceeded",
-            notice: "OpenAI quota exceeded - audio captured but cannot transcribe without working API key"
+            notice: "OpenAI quota exceeded - please add credits to your OpenAI account or type manually"
           });
         }
         

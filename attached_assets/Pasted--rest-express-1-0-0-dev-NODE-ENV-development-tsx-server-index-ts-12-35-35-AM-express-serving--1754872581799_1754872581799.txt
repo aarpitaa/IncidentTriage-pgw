@@ -1,0 +1,57 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+12:35:35 AM [express] serving on port 5000
+Browserslist: browsers data (caniuse-lite) is 10 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+12:35:37 AM [express] GET /api/health 200 in 2ms :: {"ok":true,"time":"2025-08-11T00:35:37.991Z","mod…
+12:35:38 AM [express] GET /api/incidents 304 in 165ms :: [{"id":9,"address":null,"description":"","ca…
+12:35:38 AM [express] GET /api/incidents 304 in 185ms :: [{"id":9,"address":null,"description":"","ca…
+12:36:08 AM [express] GET /api/health 200 in 1ms :: {"ok":true,"time":"2025-08-11T00:36:08.179Z","mod…
+Transcription error: RateLimitError: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/core/error.ts:96:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/client.ts:445:28)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/client.ts:668:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:253:29) {
+  status: 429,
+  headers: Headers {
+    date: 'Mon, 11 Aug 2025 00:36:08 GMT',
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': '337',
+    connection: 'keep-alive',
+    vary: 'Origin',
+    'x-request-id': 'req_37758657b15c412b8f57d1a70a00521c',
+    'x-envoy-upstream-service-time': '4',
+    'cf-cache-status': 'DYNAMIC',
+    'set-cookie': '__cf_bm=qhqg7MIrg7rgE5owEIXwdjITDl4QkMMBkNjoR8ywtm4-1754872568-1.0.1.1-_VYT4TvxDheWq5P43d02QWVI0VD8u0GvfUMgttB5PxKglAaYRibTl_HMjJ2t4PVx40AqEz2VeCyhd5l.eDpXynKLxVLXB3i1TH5MKxMJOjk; path=/; expires=Mon, 11-Aug-25 01:06:08 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=tf4MGkInT4AG6jYYxxPxR0vY48_XZNmV5JyNzgHcgnI-1754872568750-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    server: 'cloudflare',
+    'cf-ray': '96d3a8321b3dad86-ATL',
+    'alt-svc': 'h3=":443"; ma=86400'
+  },
+  requestID: 'req_37758657b15c412b8f57d1a70a00521c',
+  error: {
+    message: 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.',
+    type: 'insufficient_quota',
+    param: null,
+    code: 'insufficient_quota'
+  },
+  code: 'insufficient_quota',
+  param: null,
+  type: 'insufficient_quota'
+}
+OpenAI quota exceeded, providing audio-aware fallback
+/home/runner/workspace/server/routes.ts:285
+          const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
+                                                ^
+
+
+ReferenceError: audioFile is not defined
+    at <anonymous> (/home/runner/workspace/server/routes.ts:285:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+Node.js v20.19.3
