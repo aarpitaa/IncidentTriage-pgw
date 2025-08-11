@@ -59,6 +59,7 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const [fileSize, setFileSize] = useState(0);
+  const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -136,9 +137,21 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
 
     analyser.getByteFrequencyData(dataArray);
 
-    // Calculate audio level (RMS)
-    const rms = Math.sqrt(dataArray.reduce((sum, value) => sum + value * value, 0) / bufferLength);
-    setAudioLevel(Math.min(100, Math.round((rms / 128) * 100)));
+    // Calculate audio level using both frequency and time domain data
+    analyser.getByteTimeDomainData(dataArray);
+    
+    // Calculate RMS (Root Mean Square) for more accurate level detection
+    let sum = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      const sample = (dataArray[i] - 128) / 128; // Normalize to -1 to 1
+      sum += sample * sample;
+    }
+    const rms = Math.sqrt(sum / bufferLength);
+    const level = Math.min(100, Math.round(rms * 100 * 5)); // Amplify sensitivity
+    setAudioLevel(level);
+    
+    // Get frequency data for visualization
+    analyser.getByteFrequencyData(dataArray);
 
     // Clear canvas
     ctx.fillStyle = 'rgb(15, 23, 42)'; // Dark background
@@ -169,20 +182,79 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        } 
-      });
+      // Check if media devices are available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Media devices not supported in this browser');
+      }
+
+      // Check microphone permissions
+      try {
+        const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        setPermissionStatus(permission.state);
+        console.log('Microphone permission status:', permission.state);
+        
+        if (permission.state === 'denied') {
+          throw new Error('Microphone access is permanently denied. Please enable it in browser settings.');
+        }
+      } catch (permError) {
+        console.warn('Could not check microphone permissions:', permError);
+      }
+
+      // Request microphone access with progressive fallback constraints
+      let stream: MediaStream;
+      const constraints = [
+        // First try with optimal settings
+        {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: { ideal: 44100 },
+            channelCount: { ideal: 1 }
+          }
+        },
+        // Fallback with basic settings
+        {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        },
+        // Final fallback with minimal constraints
+        { audio: true }
+      ];
+      
+      let streamError: Error | null = null;
+      for (const constraint of constraints) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraint);
+          console.log('Microphone access granted with constraints:', constraint);
+          setPermissionStatus('granted');
+          break;
+        } catch (err) {
+          streamError = err as Error;
+          console.warn('Failed with constraint:', constraint, err);
+        }
+      }
+      
+      if (!stream!) {
+        throw streamError || new Error('Could not access microphone with any constraints');
+      }
       streamRef.current = stream;
 
       // Set up audio analysis
-      audioContextRef.current = new AudioContext();
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Resume audio context if suspended (required by Chrome's autoplay policy)
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
+      analyserRef.current.fftSize = 1024; // Increased for better audio detection
+      analyserRef.current.smoothingTimeConstant = 0.8;
       source.connect(analyserRef.current);
 
       // Set up media recorder with fallback options
@@ -233,9 +305,29 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
       // Start visualization
       drawWaveform();
 
+      // Test microphone input
+      const testLevel = () => {
+        if (analyserRef.current) {
+          const bufferLength = analyserRef.current.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          analyserRef.current.getByteTimeDomainData(dataArray);
+          
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const sample = (dataArray[i] - 128) / 128;
+            sum += sample * sample;
+          }
+          const rms = Math.sqrt(sum / bufferLength);
+          console.log('Initial microphone level:', rms);
+        }
+      };
+      
+      // Test after a short delay
+      setTimeout(testLevel, 100);
+
       toast({
         title: "Recording Started",
-        description: "Speak clearly into your microphone",
+        description: "Speak clearly into your microphone. Check browser permissions if no audio detected.",
       });
 
     } catch (error) {
@@ -244,12 +336,20 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
       
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError') {
-          errorMessage = "Microphone access denied. Please allow microphone permissions and try again.";
+          errorMessage = "Microphone access denied. Please click the microphone icon in your browser's address bar and allow permissions.";
         } else if (error.name === 'NotFoundError') {
-          errorMessage = "No microphone found. Please connect a microphone and try again.";
+          errorMessage = "No microphone found. Please connect a microphone and refresh the page.";
         } else if (error.name === 'NotSupportedError') {
-          errorMessage = "Voice recording is not supported in this browser.";
+          errorMessage = "Voice recording is not supported in this browser. Try Chrome, Firefox, or Edge.";
+        } else if (error.name === 'ConstraintNotSatisfiedError') {
+          errorMessage = "Microphone constraints not satisfied. Your microphone may not support the required settings.";
         }
+        
+        console.error('Detailed microphone error:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
       }
       
       toast({
@@ -382,8 +482,16 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
             {isRecording && (
               <div className="flex items-center gap-2">
                 <span>Level:</span>
-                <Progress value={audioLevel} className="w-20 h-2" />
-                <span>{audioLevel}%</span>
+                <Progress 
+                  value={audioLevel} 
+                  className={`w-20 h-2 ${audioLevel === 0 ? 'opacity-50' : ''}`} 
+                />
+                <span className={audioLevel === 0 ? 'text-red-500' : 'text-green-600'}>
+                  {audioLevel}%
+                </span>
+                {audioLevel === 0 && (
+                  <span className="text-xs text-red-500 ml-2">No audio detected - check mic permissions</span>
+                )}
               </div>
             )}
           </div>
