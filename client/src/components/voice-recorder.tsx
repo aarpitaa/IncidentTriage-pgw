@@ -460,8 +460,13 @@ export default function VoiceRecorder({ onTranscriptionComplete, onClose }: Voic
 
   const handleUseTranscript = () => {
     if (transcript.trim()) {
+      console.log('Using transcript:', transcript);
       onTranscriptionComplete(transcript);
       onClose();
+      toast({
+        title: "Transcript Applied",
+        description: "Voice transcription has been added to the form",
+      });
     }
   };
 

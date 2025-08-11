@@ -82,8 +82,15 @@ export default function IncidentForm({ onAiEnrichment, onClear }: IncidentFormPr
   };
 
   const handleVoiceTranscription = (transcript: string) => {
+    console.log('Received transcript for form:', transcript);
     form.setValue('description', transcript);
+    // Trigger form validation to show the updated value
+    form.trigger('description');
     setIsVoiceMode(false);
+    toast({
+      title: "Voice Transcript Added",
+      description: "Your voice recording has been converted to text and added to the description field.",
+    });
   };
 
   const handleSampleClick = (description: string) => {
