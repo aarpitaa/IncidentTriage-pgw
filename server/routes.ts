@@ -277,26 +277,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle specific OpenAI errors gracefully
       if (error instanceof Error) {
-        // Quota exceeded - fallback to dummy transcription
+        // Quota exceeded - provide realistic feedback about actual audio recording
         if (error.message.includes('quota') || error.message.includes('insufficient_quota') || (error as any).status === 429) {
-          console.log("OpenAI quota exceeded, falling back to dummy transcription");
+          console.log("OpenAI quota exceeded, providing audio-aware fallback");
           
-          const dummyTranscripts = [
-            "Customer reports gas leak near 1234 Main Street. Strong odor detected in basement area. Pilot light appears to be out. No visible flames observed.",
-            "Power outage affecting entire Oak Avenue neighborhood since 2 PM. Multiple customers calling in. Estimated restoration time unknown.",
-            "Water main break at intersection of 5th and Main Streets. Significantly reduced water pressure throughout the area. Residents advised to conserve water.",
-            "Billing dispute for customer account. Meter reading appears incorrect based on usage history. Customer requesting review and adjustment.",
-            "Gas odor reported outside apartment building on Elm Street. Residents evacuated as precaution. Emergency crews dispatched to location."
-          ];
+          // Get file size to determine if actual audio was captured
+          const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
+          const fileSizeKB = audioBuffer.length / 1024;
           
-          const randomTranscript = dummyTranscripts[Math.floor(Math.random() * dummyTranscripts.length)];
+          let transcript: string;
+          
+          if (fileSizeKB > 5) {
+            // Real audio was recorded, acknowledge it
+            transcript = `[Audio file recorded: ${fileSizeKB.toFixed(1)}KB] Your voice recording was captured successfully, but OpenAI transcription service quota is exceeded. Please type your description manually or provide a working OpenAI API key to transcribe your recording.`;
+          } else {
+            // Very small audio file, likely silent
+            transcript = `No clear audio detected in ${fileSizeKB.toFixed(1)}KB recording. Please speak louder and closer to microphone, or type your description manually.`;
+          }
           
           return res.json({
-            transcript: randomTranscript,
-            confidence: 95,
+            transcript: transcript,
+            confidence: null,
             segments: [],
-            mode: "dummy-fallback",
-            notice: "Using sample transcription due to service limitations"
+            mode: "quota-exceeded",
+            notice: "OpenAI quota exceeded - audio captured but cannot transcribe without working API key"
           });
         }
         
