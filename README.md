@@ -84,7 +84,7 @@ IncidentTriagepgw is a modern web application designed to streamline utility inc
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/IncidentTriagepgw.git
+   git clone https://github.com/aarpitaa/IncidentTriage-pgw.git
    cd IncidentTriagepgw
    ```
 
