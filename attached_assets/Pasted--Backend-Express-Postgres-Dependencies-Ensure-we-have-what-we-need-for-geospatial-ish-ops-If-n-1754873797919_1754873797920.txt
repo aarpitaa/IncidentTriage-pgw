@@ -1,0 +1,72 @@
+) Backend (Express + Postgres)
+Dependencies
+Ensure we have what we need for geospatial-ish ops. If not already present, add: dayjs.
+Data
+Create these Postgres tables (or reuse if similar exist):
+CREATE TABLE IF NOT EXISTS risk_incidents (
+  id SERIAL PRIMARY KEY,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  category TEXT NOT NULL,
+  severity TEXT NOT NULL, -- High|Medium|Low
+  occurred_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS risk_repairs (
+  id SERIAL PRIMARY KEY,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  status TEXT NOT NULL, -- Open|InProgress|Closed
+  opened_at TIMESTAMPTZ NOT NULL,
+  closed_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS risk_pipelines (
+  id SERIAL PRIMARY KEY,
+  path_geojson JSONB NOT NULL, -- LineString coordinates
+  install_year INT NOT NULL,
+  material TEXT NOT NULL
+);
+-- Optional “weather” points for overlay; keep simple:
+CREATE TABLE IF NOT EXISTS risk_weather (
+  id SERIAL PRIMARY KEY,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  temp_c DOUBLE PRECISION,
+  wind_kph DOUBLE PRECISION,
+  precip_mm DOUBLE PRECISION,
+  observed_at TIMESTAMPTZ NOT NULL
+);
+Add a seed script /scripts/seed_riskmap.js to insert mock data around a Philly-like bounding box (lat: 39.90–40.10, lng: −75.30–−75.00) with:
+~200 risk_incidents across last 90 days (severity mix).
+~60 risk_repairs with varied status.
+~20 risk_pipelines (LineStrings, random install_year 1970–2020, mixed materials).
+~300 risk_weather points last 30 days (temp/wind/precip).
+Add npm run seed:riskmap to run the seeder.
+API
+Add endpoints under /api/riskmap:
+GET /api/riskmap/bounds → returns default city bounds (for initial map view).
+GET /api/riskmap/points?from&to&layers=incidents,repairs,weather&severity=High,Medium,Low&category=...
+Returns arrays: { incidents:[{lat,lng,severity,category,occurred_at}], repairs:[...], weather:[...] } filtered by date/layers.
+GET /api/riskmap/pipelines → returns { pipelines:[{id, path_geojson, install_year, material}] }.
+Scoring/Top zones
+Define a grid of zones in memory (e.g., 0.01° x 0.01° cells over the city bounds).
+For each zone, compute a risk score:
+score = Σ_incidents( severityWeight * timeDecay )
+      + Σ_repairs_open( repairWeight )
+      + Σ_pipelines_in_zone( pipelineAgeWeight )
+      + Σ_weather( weatherStressWeight )
+where:
+  severityWeight: High=3, Medium=2, Low=1
+  timeDecay(days) = exp(-days/30)
+  repairWeight (open=2, inProgress=1, closed=0)
+  pipelineAgeWeight = normalize(install_age_years) in [0..2]
+  weatherStressWeight = normalize( |temp-0|/40 + wind/100 + precip/50 ) in [0..1]
+GET /api/riskmap/topzones?from&to&count=3 → returns the top N zones { zones:[{id, centerLat, centerLng, score, reasons:[...]}] } and a brief server-generated justification string per zone (e.g., “3 High incidents in last 7 days, 1 open repair, older pipeline”).
+Natural-language ask (optional LLM)
+POST /api/riskmap/ask with { question, from, to }.
+If OPENAI_API_KEY exists, call OpenAI with a system prompt that says “You analyze risk using only the supplied JSON”; supply topzones + simple aggregates as context; return ≤120-word ranked justification.
+Else return a rule-based summary using topzones.
+Acceptance (backend)
+seed:riskmap populates data.
+/api/riskmap/points filters correctly by date and severity.
+/api/riskmap/topzones returns 3 zones with scores and reasons.
+/api/riskmap/ask returns a short answer (LLM or rule-based).

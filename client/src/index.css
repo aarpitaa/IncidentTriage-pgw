@@ -107,6 +107,29 @@ body {
   color: var(--text) !important;
 }
 
+/* Fixed background styles for utility infrastructure theme */
+.fixed-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  opacity: 0.7;
+  filter: none;
+  pointer-events: none;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+/* Dark mode background adjustments */
+.dark .fixed-background {
+  opacity: 0.4;
+  filter: brightness(0.8);
+}
+
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(210 25% 7.8431%);

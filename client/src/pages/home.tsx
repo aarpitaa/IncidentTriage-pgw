@@ -12,7 +12,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EnrichResponse } from "@shared/schema";
-import { BarChart3, Home as HomeIcon, Settings } from "lucide-react";
+import { BarChart3, Home as HomeIcon, Settings, MapPin, ExternalLink } from "lucide-react";
 
 export default function Home() {
   const [location] = useLocation();
@@ -93,6 +93,16 @@ export default function Home() {
                     Analytics
                   </Button>
                 </Link>
+                <Link href="/risk-map">
+                  <Button 
+                    variant={location === "/risk-map" ? "default" : "ghost"} 
+                    size="sm"
+                    className="text-sm"
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Risk Map
+                  </Button>
+                </Link>
               </nav>
               
               <ThemeToggle />
@@ -143,6 +153,19 @@ export default function Home() {
             
             {/* Always show incidents map */}
             <IncidentsMap />
+            
+            {/* City Risk Map Simulator Button */}
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => window.open("/risk-map", "_blank")}
+              >
+                <MapPin className="h-4 w-4 mr-2" />
+                City Risk Map Simulator
+                <ExternalLink className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
           </div>
 
           {/* Right Column: Incident History + Individual Map + Audit Trail */}

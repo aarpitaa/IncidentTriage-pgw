@@ -13,10 +13,13 @@ The AI Incident Triage Portal is a complete web application designed to streamli
 - Teams-style card preview for incident sharing
 - Comprehensive audit trail and change tracking
 - PostgreSQL database with full CRUD operations
+- **City Risk Map Simulator** with heat mapping, risk zone analysis, and AI-powered insights
+- **Comprehensive Documentation** including complete README with features, troubleshooting, and known limitations
+- **AI-generated Background** with custom utility infrastructure imagery
 
-**Status:** Ready for deployment - All major features implemented and tested.
+**Status:** Production-ready - All major features implemented, tested, and fully documented including comprehensive README with troubleshooting guide.
 
-**One-line Description:** A comprehensive AI-powered incident triage portal for utility companies with intelligent classification, interactive mapping, and real-time analytics.
+**One-line Description:** A comprehensive AI-powered incident triage portal for utility companies with intelligent classification, interactive mapping, real-time analytics, and city-wide risk simulation capabilities.
 
 ## User Preferences
 
@@ -41,8 +44,9 @@ Preferred communication style: Simple, everyday language.
 ### Database Layer
 - **ORM**: Drizzle ORM for type-safe database operations
 - **Database**: PostgreSQL with Neon serverless configuration
-- **Schema**: Three main entities - incidents, AI suggestions, and audit trails
+- **Schema**: Seven main entities - incidents, AI suggestions, audit trails, plus risk entities (risk incidents, repairs, pipelines, weather)
 - **Migration**: Drizzle Kit for database schema management and migrations
+- **Risk Data**: Comprehensive seeded mock data for city-wide risk simulation (200 incidents, 60 repairs, 20 pipelines, 300 weather observations)
 
 ### AI Service Layer
 - **Pluggable Design**: Abstract AI service interface allowing for multiple implementations

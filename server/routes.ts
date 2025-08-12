@@ -7,7 +7,11 @@ import path from "path";
 import OpenAI from "openai";
 import { storage } from "./storage";
 import { createAIService } from "./services/ai";
-import { enrichRequestSchema, insertIncidentSchema, categoryEnum, severityEnum } from "@shared/schema";
+import { enrichRequestSchema, insertIncidentSchema, categoryEnum, severityEnum, incidents, aiSuggestions, audits, riskIncidents, riskRepairs, riskPipelines, riskWeather, type Incident } from "@shared/schema";
+import { and, eq, gte, lte, desc, asc, or, ilike, type SQL } from "drizzle-orm";
+import { db } from "./db";
+import { sanitizePII } from "../shared/pii";
+import dayjs from "dayjs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const aiService = createAIService();
@@ -533,6 +537,263 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Import error:", error);
       res.status(500).json({ error: "Failed to import incidents" });
+    }
+  });
+
+  // Risk Map Simulator API endpoints
+  app.get("/api/riskmap/bounds", (req, res) => {
+    res.json({
+      bounds: {
+        minLat: 39.90,
+        maxLat: 40.10,
+        minLng: -75.30,
+        maxLng: -75.00
+      },
+      center: { lat: 40.0, lng: -75.15 },
+      zoom: 11
+    });
+  });
+
+  app.get("/api/riskmap/points", async (req, res) => {
+    try {
+      const { from, to, layers, severity, category } = req.query;
+      
+      // Parse dates
+      const fromDate = from ? new Date(from as string) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const toDate = to ? new Date(to as string) : new Date();
+      
+      // Parse layers
+      const requestedLayers = layers ? (layers as string).split(',') : ['incidents', 'repairs', 'weather'];
+      
+      // Parse filters
+      const severityFilter = severity ? (severity as string).split(',') : ['High', 'Medium', 'Low'];
+      const categoryFilter = category ? (category as string).split(',') : [];
+      
+      const result: any = {};
+      
+      // Fetch incidents if requested
+      if (requestedLayers.includes('incidents')) {
+        const incidents = await db.select().from(riskIncidents)
+          .where(and(
+            gte(riskIncidents.occurredAt, fromDate),
+            lte(riskIncidents.occurredAt, toDate)
+          ));
+        
+        result.incidents = incidents.filter(inc => 
+          severityFilter.includes(inc.severity) && 
+          (categoryFilter.length === 0 || categoryFilter.includes(inc.category))
+        );
+      }
+      
+      // Fetch repairs if requested
+      if (requestedLayers.includes('repairs')) {
+        result.repairs = await db.select().from(riskRepairs)
+          .where(and(
+            gte(riskRepairs.openedAt, fromDate),
+            lte(riskRepairs.openedAt, toDate)
+          ));
+      }
+      
+      // Fetch weather if requested
+      if (requestedLayers.includes('weather')) {
+        result.weather = await db.select().from(riskWeather)
+          .where(and(
+            gte(riskWeather.observedAt, fromDate),
+            lte(riskWeather.observedAt, toDate)
+          ));
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Risk map points error:", error);
+      res.status(500).json({ error: "Failed to fetch risk map data" });
+    }
+  });
+
+  app.get("/api/riskmap/pipelines", async (req, res) => {
+    try {
+      const pipelines = await db.select().from(riskPipelines);
+      res.json({ pipelines });
+    } catch (error) {
+      console.error("Risk map pipelines error:", error);
+      res.status(500).json({ error: "Failed to fetch pipeline data" });
+    }
+  });
+
+  app.get("/api/riskmap/topzones", async (req, res) => {
+    try {
+      const { from, to, count = 3 } = req.query;
+      
+      // Parse dates
+      const fromDate = from ? new Date(from as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const toDate = to ? new Date(to as string) : new Date();
+      
+      // Fetch data for scoring
+      const incidents = await db.select().from(riskIncidents)
+        .where(and(
+          gte(riskIncidents.occurredAt, fromDate),
+          lte(riskIncidents.occurredAt, toDate)
+        ));
+      
+      const repairs = await db.select().from(riskRepairs)
+        .where(eq(riskRepairs.status, 'Open'));
+      
+      const pipelines = await db.select().from(riskPipelines);
+      
+      // Define grid zones (0.01° x 0.01° cells)
+      const zones = [];
+      const gridSize = 0.01;
+      
+      for (let lat = 39.90; lat < 40.10; lat += gridSize) {
+        for (let lng = -75.30; lng < -75.00; lng += gridSize) {
+          const zoneId = `${lat.toFixed(2)}_${lng.toFixed(2)}`;
+          const centerLat = lat + gridSize / 2;
+          const centerLng = lng + gridSize / 2;
+          
+          // Calculate risk score for this zone
+          let score = 0;
+          const reasons = [];
+          
+          // Score incidents in zone
+          const zoneIncidents = incidents.filter(inc => 
+            inc.lat >= lat && inc.lat < lat + gridSize &&
+            inc.lng >= lng && inc.lng < lng + gridSize
+          );
+          
+          zoneIncidents.forEach(inc => {
+            const severityWeight = inc.severity === 'High' ? 3 : inc.severity === 'Medium' ? 2 : 1;
+            const daysAgo = Math.floor((Date.now() - new Date(inc.occurredAt).getTime()) / (24 * 60 * 60 * 1000));
+            const timeDecay = Math.exp(-daysAgo / 30);
+            score += severityWeight * timeDecay;
+          });
+          
+          if (zoneIncidents.length > 0) {
+            const highIncidents = zoneIncidents.filter(i => i.severity === 'High').length;
+            const recentIncidents = zoneIncidents.filter(i => {
+              const daysAgo = Math.floor((Date.now() - new Date(i.occurredAt).getTime()) / (24 * 60 * 60 * 1000));
+              return daysAgo <= 7;
+            }).length;
+            
+            if (highIncidents > 0) reasons.push(`${highIncidents} high severity incidents`);
+            if (recentIncidents > 0) reasons.push(`${recentIncidents} recent incidents`);
+          }
+          
+          // Score repairs in zone
+          const zoneRepairs = repairs.filter(repair => 
+            repair.lat >= lat && repair.lat < lat + gridSize &&
+            repair.lng >= lng && repair.lng < lng + gridSize
+          );
+          
+          score += zoneRepairs.length * 2; // Open repairs add weight
+          if (zoneRepairs.length > 0) {
+            reasons.push(`${zoneRepairs.length} open repairs`);
+          }
+          
+          // Score pipelines in zone (simplified - check if any pipeline passes through)
+          const zonePipelines = pipelines.filter(pipeline => {
+            const coords = pipeline.pathGeojson.coordinates;
+            return coords.some(coord => 
+              coord[1] >= lat && coord[1] < lat + gridSize &&
+              coord[0] >= lng && coord[0] < lng + gridSize
+            );
+          });
+          
+          zonePipelines.forEach(pipeline => {
+            const age = 2024 - pipeline.installYear;
+            const ageScore = Math.min(age / 50 * 2, 2); // Normalize to 0-2
+            score += ageScore;
+          });
+          
+          if (zonePipelines.length > 0) {
+            const oldPipelines = zonePipelines.filter(p => 2024 - p.installYear > 40).length;
+            if (oldPipelines > 0) reasons.push(`${oldPipelines} aging pipelines`);
+          }
+          
+          if (score > 0) {
+            zones.push({
+              id: zoneId,
+              centerLat,
+              centerLng,
+              score: Math.round(score * 100) / 100,
+              reasons
+            });
+          }
+        }
+      }
+      
+      // Sort and return top zones
+      zones.sort((a, b) => b.score - a.score);
+      const topZones = zones.slice(0, parseInt(count as string));
+      
+      res.json({ zones: topZones });
+    } catch (error) {
+      console.error("Risk map top zones error:", error);
+      res.status(500).json({ error: "Failed to calculate risk zones" });
+    }
+  });
+
+  app.post("/api/riskmap/ask", async (req, res) => {
+    try {
+      const { question, from, to } = req.body;
+      
+      if (!question || typeof question !== 'string') {
+        return res.status(400).json({ error: "Question is required" });
+      }
+      
+      // Get top zones for context
+      const topZonesRes = await fetch(`http://localhost:5000/api/riskmap/topzones?from=${from || ''}&to=${to || ''}&count=5`);
+      const topZonesData = await topZonesRes.json();
+      
+      let answer = '';
+      
+      // Try OpenAI if available
+      if (process.env.OPENAI_API_KEY) {
+        try {
+          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          
+          const systemPrompt = `You are a utility risk analyst. Analyze the provided risk zone data and answer questions concisely in 120 words or less. Focus on actionable insights about high-risk areas, recent incidents, and infrastructure concerns.`;
+          
+          const context = `Top Risk Zones Data:
+${topZonesData.zones.map((zone, i) => 
+  `${i + 1}. Zone ${zone.id} (Score: ${zone.score}) - ${zone.reasons.join(', ')}`
+).join('\n')}`;
+          
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Context: ${context}\n\nQuestion: ${question}` }
+            ],
+            max_tokens: 200
+          });
+          
+          answer = response.choices[0].message.content || '';
+        } catch (aiError) {
+          console.log("OpenAI request failed, using rule-based response");
+          // Fall through to rule-based response
+        }
+      }
+      
+      // Rule-based fallback
+      if (!answer) {
+        if (topZonesData.zones.length > 0) {
+          const topZone = topZonesData.zones[0];
+          answer = `Based on current data analysis, Zone ${topZone.id} shows the highest risk (score: ${topZone.score}). Key concerns: ${topZone.reasons.join(', ')}. `;
+          
+          if (topZonesData.zones.length > 1) {
+            answer += `Also monitor Zones ${topZonesData.zones.slice(1, 3).map(z => z.id).join(' and ')} for elevated risk levels. `;
+          }
+          
+          answer += `Recommend prioritizing inspections and preventive maintenance in these areas.`;
+        } else {
+          answer = `Current risk analysis shows no significant high-risk zones in the selected timeframe. Continue regular monitoring and maintenance schedules.`;
+        }
+      }
+      
+      res.json({ answer: answer.trim() });
+    } catch (error) {
+      console.error("Risk map ask error:", error);
+      res.status(500).json({ error: "Failed to process risk analysis question" });
     }
   });
 

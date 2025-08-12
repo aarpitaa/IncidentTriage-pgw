@@ -1,0 +1,112 @@
+Feature: Add a City Risk Map Simulator to the existing FULLSTACK_JS (React + Express + Postgres) app. Keep all existing functionality.
+0) General
+Reuse current stack: React + Leaflet on the front end, Express + Postgres on the back end.
+Add a button “Open City Risk Map Simulator” under the existing incident detail map that routes to /risk-map.
+1) Backend (Express + Postgres)
+Dependencies
+Ensure we have what we need for geospatial-ish ops. If not already present, add: dayjs.
+Data
+Create these Postgres tables (or reuse if similar exist):
+CREATE TABLE IF NOT EXISTS risk_incidents (
+  id SERIAL PRIMARY KEY,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  category TEXT NOT NULL,
+  severity TEXT NOT NULL, -- High|Medium|Low
+  occurred_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS risk_repairs (
+  id SERIAL PRIMARY KEY,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  status TEXT NOT NULL, -- Open|InProgress|Closed
+  opened_at TIMESTAMPTZ NOT NULL,
+  closed_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS risk_pipelines (
+  id SERIAL PRIMARY KEY,
+  path_geojson JSONB NOT NULL, -- LineString coordinates
+  install_year INT NOT NULL,
+  material TEXT NOT NULL
+);
+-- Optional “weather” points for overlay; keep simple:
+CREATE TABLE IF NOT EXISTS risk_weather (
+  id SERIAL PRIMARY KEY,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  temp_c DOUBLE PRECISION,
+  wind_kph DOUBLE PRECISION,
+  precip_mm DOUBLE PRECISION,
+  observed_at TIMESTAMPTZ NOT NULL
+);
+Add a seed script /scripts/seed_riskmap.js to insert mock data around a Philly-like bounding box (lat: 39.90–40.10, lng: −75.30–−75.00) with:
+~200 risk_incidents across last 90 days (severity mix).
+~60 risk_repairs with varied status.
+~20 risk_pipelines (LineStrings, random install_year 1970–2020, mixed materials).
+~300 risk_weather points last 30 days (temp/wind/precip).
+Add npm run seed:riskmap to run the seeder.
+API
+Add endpoints under /api/riskmap:
+GET /api/riskmap/bounds → returns default city bounds (for initial map view).
+GET /api/riskmap/points?from&to&layers=incidents,repairs,weather&severity=High,Medium,Low&category=...
+Returns arrays: { incidents:[{lat,lng,severity,category,occurred_at}], repairs:[...], weather:[...] } filtered by date/layers.
+GET /api/riskmap/pipelines → returns { pipelines:[{id, path_geojson, install_year, material}] }.
+Scoring/Top zones
+Define a grid of zones in memory (e.g., 0.01° x 0.01° cells over the city bounds).
+For each zone, compute a risk score:
+score = Σ_incidents( severityWeight * timeDecay )
+      + Σ_repairs_open( repairWeight )
+      + Σ_pipelines_in_zone( pipelineAgeWeight )
+      + Σ_weather( weatherStressWeight )
+where:
+  severityWeight: High=3, Medium=2, Low=1
+  timeDecay(days) = exp(-days/30)
+  repairWeight (open=2, inProgress=1, closed=0)
+  pipelineAgeWeight = normalize(install_age_years) in [0..2]
+  weatherStressWeight = normalize( |temp-0|/40 + wind/100 + precip/50 ) in [0..1]
+GET /api/riskmap/topzones?from&to&count=3 → returns the top N zones { zones:[{id, centerLat, centerLng, score, reasons:[...]}] } and a brief server-generated justification string per zone (e.g., “3 High incidents in last 7 days, 1 open repair, older pipeline”).
+Natural-language ask (optional LLM)
+POST /api/riskmap/ask with { question, from, to }.
+If OPENAI_API_KEY exists, call OpenAI with a system prompt that says “You analyze risk using only the supplied JSON”; supply topzones + simple aggregates as context; return ≤120-word ranked justification.
+Else return a rule-based summary using topzones.
+Acceptance (backend)
+seed:riskmap populates data.
+/api/riskmap/points filters correctly by date and severity.
+/api/riskmap/topzones returns 3 zones with scores and reasons.
+/api/riskmap/ask returns a short answer (LLM or rule-based).
+2) Frontend (React + Leaflet)
+Routing
+Add route /risk-map. Add a primary button “Open City Risk Map Simulator” under the existing incident detail map that navigates here. Also add a nav link so it’s discoverable.
+Page layout: RiskMapPage
+Left panel (controls):
+Date range (quick picks: 7d / 30d / 90d).
+Layer toggles: Incidents, Repairs, Pipelines, Weather, Heatmap.
+Severity filter pills (High/Med/Low).
+Button: Compute Top 3 Zones (calls /api/riskmap/topzones).
+NL box: “Ask the map” (default question: “Top 3 zones to inspect this week?”) → hits /api/riskmap/ask.
+Map (Leaflet):
+Initial view = city bounds from /api/riskmap/bounds.
+Render:
+Point layers: incidents (colored circle markers by severity), repairs (icons by status), weather (small faded dots).
+Pipelines: polylines from path_geojson, thicker stroke for older pipe (e.g., >40yrs).
+Heatmap (Leaflet.heat) driven by incidents with severity weights; toggle on/off.
+Time slider animation: simple play/pause that moves a window across the range (e.g., 1-week window sliding across 90 days), refreshing /points for that window.
+Top zones: when computed, draw translucent rectangles/circles for the highlighted zones with labels “#1 / score 12.5” and a small tooltip with reasons. Clicking recenters/zooms.
+Info bar / results:
+Show total points loaded, current filters, and the NL answer (if any).
+Button Export PNG of the map (use leaflet-easyPrint or html2canvas fallback).
+Styling
+Respect your existing dark/light theme. Severity colors should use the same red/orange/green variables.
+Acceptance (frontend)
+Toggling layers immediately shows/hides them.
+Changing date range refetches points.
+Heatmap and time slider animate smoothly.
+Clicking Compute Top 3 Zones highlights the zones and scrolls a small panel listing their reasons.
+The NL box returns a short ranked answer (LLM if key present, else rule-based).
+“Open City Risk Map Simulator” button works from the incident detail page.
+3) README
+Add a City Risk Map Simulator section with screenshots (heatmap, top zones), how to seed (npm run seed:riskmap), and how to enable the NL ask via OPENAI_API_KEY.
+4) Stretch (optional, only if quick)
+Cache /api/riskmap/points responses for the current range to reduce refetching during animation.
+Persist the last map viewport in localStorage.
+Add a mini legend (colors, icons) in the corner.
